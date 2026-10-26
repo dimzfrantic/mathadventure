@@ -101,20 +101,6 @@ function storageError<T>(code: RewardStoreError): T {
   return { status: 'storage-error', code } as unknown as T
 }
 
-function transactionFingerprint(tx: RewardTransaction): string {
-  return JSON.stringify([
-    tx.transactionId,
-    tx.status,
-    tx.requestedAt,
-    tx.starsRedeemed,
-    tx.rupiahValue,
-    tx.ruleSnapshotVersion,
-    tx.ruleSnapshot.rupiahPerStar,
-    tx.confirmedAt,
-    tx.cancelledAt,
-  ])
-}
-
 /**
  * Substantive content fingerprint — excludes the status lifecycle fields
  * (`status`, `confirmedAt`, `cancelledAt`) so that a legitimate state
@@ -125,7 +111,6 @@ function transactionFingerprint(tx: RewardTransaction): string {
 function transactionSubstantiveFingerprint(tx: RewardTransaction): string {
   return JSON.stringify([
     tx.transactionId,
-    tx.requestedAt,
     tx.starsRedeemed,
     tx.rupiahValue,
     tx.ruleSnapshotVersion,
@@ -301,18 +286,26 @@ export class RewardIndexedDbStore {
                   decide({ status: 'conflict', reason: 'conflicting-transaction-content' })
                   return
                 }
-                // Same substantive content: a status transition (pending->confirmed /
-                // pending->cancelled) is a legitimate write; an identical resubmission
-                // of the same status is an idempotent duplicate.
-                if (
-                  existingChecked.value.status === checked.value.status &&
-                  existingChecked.value.confirmedAt === checked.value.confirmedAt &&
-                  existingChecked.value.cancelledAt === checked.value.cancelledAt &&
-                  transactionFingerprint(existingChecked.value) === transactionFingerprint(checked.value)
-                ) {
+
+                // If existing transaction is already in a terminal state (confirmed or cancelled)
+                if (existingChecked.value.status !== 'pending') {
+                  if (existingChecked.value.status === checked.value.status) {
+                    // Already in this terminal status (e.g. repeated confirm/cancel) -> idempotent duplicate
+                    decide({ status: 'duplicate' })
+                    return
+                  }
+                  // Attempting an illegal transition out of terminal status (confirmed <-> cancelled or terminal -> pending)
+                  decide({ status: 'conflict', reason: 'conflicting-transaction-content' })
+                  return
+                }
+
+                // If existing transaction is pending, and new transaction is also pending -> duplicate submission
+                if (checked.value.status === 'pending') {
                   decide({ status: 'duplicate' })
                   return
                 }
+
+                // Legitimate transition from pending -> confirmed or pending -> cancelled
               }
             }
 

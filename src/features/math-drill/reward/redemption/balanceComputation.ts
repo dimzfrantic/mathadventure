@@ -251,6 +251,11 @@ export function computeAvailableBalance(
 
   let totalCorrectionDelta = 0
   for (const { corr } of validCorrMap.values()) {
+    const origTx = validTxMap.get(corr.originalTransactionId)
+    if (!origTx || origTx.tx.status !== 'confirmed') {
+      invalidCorrectionsCount++
+      continue
+    }
     totalCorrectionDelta += corr.starsDelta
   }
 

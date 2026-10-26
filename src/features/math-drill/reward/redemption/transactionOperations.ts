@@ -41,6 +41,7 @@ export type SubmitRedemptionResult =
         | 'invalid-config'
         | 'ledger-inconsistent'
         | 'duplicate-transaction-id'
+        | 'invalid-transaction-id'
     }
 
 export type ConfirmRedemptionResult =
@@ -92,6 +93,14 @@ export function submitRedemptionRequest(params: {
   readonly completedSessions: readonly unknown[]
   readonly existingTransactions: readonly unknown[]
 }): SubmitRedemptionResult {
+  // 0. Validate input parameters upfront
+  if (typeof params.transactionId !== 'string' || params.transactionId.trim().length === 0) {
+    return { status: 'error', reason: 'invalid-transaction-id' }
+  }
+  if (!Number.isSafeInteger(params.starsRedeemed) || params.starsRedeemed <= 0) {
+    return { status: 'error', reason: 'below-min-stars' }
+  }
+
   // 1. Check existing balance & ledger consistency
   const balanceResult = computeAvailableBalance(
     params.completedSessions,
