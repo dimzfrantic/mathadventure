@@ -1,0 +1,47 @@
+.activity-shell {
+  min-height: 100vh;
+}
+
+.activity-switcher {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.8rem 1rem;
+  background: #f0f6fa;
+  border-bottom: 1px solid #d5e1e8;
+}
+
+.activity-switcher button {
+  min-height: 44px;
+  padding: 0.55rem 1rem;
+  border: 2px solid #42657a;
+  border-radius: 999px;
+  background: #fff;
+  color: #203744;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.activity-switcher button[aria-pressed="true"] {
+  color: #fff;
+  background: #285d75;
+  border-color: #285d75;
+}
+
+.activity-switcher button:focus-visible {
+  outline: 3px solid #f2a900;
+  outline-offset: 3px;
+}
+
+@media (max-width: 480px) {
+  .activity-switcher {
+    justify-content: stretch;
+  }
+
+  .activity-switcher button {
+    flex: 1;
+    padding-inline: 0.45rem;
+    font-size: 0.9rem;
+  }
+}

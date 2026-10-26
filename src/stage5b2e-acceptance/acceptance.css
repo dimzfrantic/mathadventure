@@ -1,0 +1,22 @@
+.stage5b2e-shell { width: min(100%, 900px); margin-inline: auto; padding: 12px; overflow-wrap: anywhere; }
+.stage5b2e-banner, .stage5b2e-diagnostics { min-width: 0; margin: 0 auto 12px; padding: 14px; border: 1px solid #b7ccd6; border-radius: 12px; background: #fff; }
+.stage5b2e-warning { display: inline-block; margin: 0; padding: 8px 10px; border-radius: 8px; background: #fff1c7; color: #5c3b00; font-weight: 900; }
+.stage5b2e-banner h1 { margin: 12px 0 6px; font-size: clamp(1.3rem, 5vw, 2rem); line-height: 1.2; }
+.stage5b2e-banner p { line-height: 1.45; }
+.stage5b2e-db-name code, .stage5b2e-archive code { overflow-wrap: anywhere; word-break: break-word; }
+.stage5b2e-section-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+.stage5b2e-section-heading h2 { margin: 0 0 8px; font-size: 1.12rem; }
+.stage5b2e-refresh, .stage5b2e-blocked button { min-height: 44px; padding: 8px 12px; border: 2px solid #376982; border-radius: 8px; background: #fff; color: #173d54; font: inherit; font-weight: 750; touch-action: manipulation; }
+.stage5b2e-capabilities { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; margin: 8px 0; }
+.stage5b2e-cap-row { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; padding: 6px 0; border-bottom: 1px solid #dce8ed; }
+.stage5b2e-cap-row dt { font-weight: 700; }
+.stage5b2e-cap-row dd { min-width: 0; margin: 0; text-align: right; overflow-wrap: anywhere; }
+.stage5b2e-note { padding: 10px; border-left: 4px solid #3c7183; background: #eef7fa; color: #183b4d; line-height: 1.45; }
+.stage5b2e-blocked { padding: 10px; border-left: 4px solid #9b3b24; background: #fff0e9; color: #632819; overflow-wrap: anywhere; }
+.stage5b2e-archive { min-width: 0; margin-top: 14px; padding: 10px; border: 1px solid #d1e0e7; border-radius: 10px; background: #f8fbfd; }
+.stage5b2e-archive h3 { margin-top: 0; font-size: 1rem; }
+.stage5b2e-archive ol { padding-left: 22px; }
+.stage5b2e-archive li { display: grid; gap: 4px; min-width: 0; margin-block: 10px; padding: 9px; border: 1px solid #c7d8df; border-radius: 8px; background: white; }
+.stage5b2e-app { min-width: 0; }
+.stage5b2e-shell button:focus-visible { outline: 3px solid #f2a900; outline-offset: 2px; }
+@media (min-width: 600px) { .stage5b2e-shell { padding: 18px; } .stage5b2e-banner, .stage5b2e-diagnostics { padding: 18px; } .stage5b2e-capabilities { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 18px; } }

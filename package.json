@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:api": "node server/api-server.js",
+    "dev:all": "concurrently \"npm run dev\" \"npm run dev:api\"",
     "typecheck": "tsc -b --pretty false",
     "build": "tsc -b && vite build",
     "test": "vitest run",
@@ -26,6 +28,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
+    "fake-indexeddb": "6.2.6",
     "jsdom": "^30.1.2",
     "oxlint": "^1.81.0",
     "typescript": "~6.0.2",

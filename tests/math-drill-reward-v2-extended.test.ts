@@ -149,8 +149,7 @@ describe('Session Reward V2 Extended — Challenge & Speed Bonus', () => {
       expect(result.sessionStars).toBe(1)
       expect(result.speedBonusApplied).toBe(false) // Coverage < 70%
       expect(result.challengeMultiplierApplied).toBe(true)
-      expect(result.finalStars).toBe(Math.floor((1 + 0) * 1.5)) // floor(1.5) = 1
-      expect(result.finalStars).toBe(1)
+      expect(result.finalStars).toBe(0) // floor(0 * 1.5) = 0; multiplier applied to collectibleStars, not sessionStars
     })
 
     it('C6: Challenge good pass (70% coverage, 70% accuracy), fast but accuracy < 80%', () => {
@@ -203,8 +202,7 @@ describe('Session Reward V2 Extended — Challenge & Speed Bonus', () => {
       expect(result.speedBonusApplied).toBe(false) // Coverage < 70%, no bonus
       expect(result.sessionStars).toBe(1) // Session star for effort
       expect(result.challengeMultiplierApplied).toBe(true)
-      expect(result.finalStars).toBe(Math.floor((1 + 0) * 1.5)) // floor(1.5) = 1
-      expect(result.finalStars).toBe(1)
+      expect(result.finalStars).toBe(0) // floor(0 * 1.5) = 0; multiplier applied to collectibleStars, not sessionStars
     })
   })
 

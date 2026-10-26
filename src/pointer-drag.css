@@ -1,0 +1,15 @@
+.pointer-drag-preview {
+  position: fixed;
+  z-index: 1000;
+  max-width: 10rem;
+  padding: 0.55rem 0.8rem;
+  border: 2px solid #145eaa;
+  border-radius: 0.8rem;
+  background: #fff;
+  box-shadow: 0 5px 18px rgb(24 48 67 / 24%);
+  color: #183043;
+  font: 700 0.95rem/1.25 system-ui, sans-serif;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+}

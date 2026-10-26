@@ -25,6 +25,9 @@ coverage
 *.tsbuildinfo
 .cache
 
+# Server data directory — contains apiKey and session data, must not be committed
+server/data/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

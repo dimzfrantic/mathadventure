@@ -326,10 +326,11 @@ describe('Session Reward V2 Extended — Integration Tests', () => {
         totalPoints: 5.4, // 90% accuracy, but only 60% coverage
       })
 
-      expect(result.collectibleStars).toBe(0) // Rule B
-      expect(result.sessionStars).toBe(1)
-      expect(result.speedBonusApplied).toBe(false)
-      expect(result.finalStars).toBe(1) // (1*1.5) = 1.5 → 1
+      expect(result.collectibleStars).toBe(0) // Rule B: 60% coverage < 70% → no reward
+      expect(result.sessionStars).toBe(1) // Effort credit for completing 6/10
+      expect(result.speedBonusApplied).toBe(false) // No timer metadata
+      expect(result.challengeMultiplierApplied).toBe(true) // Challenge mode
+      expect(result.finalStars).toBe(0) // floor(0 * 1.5) = 0; no multiplier applied to zero
     })
   })
 })

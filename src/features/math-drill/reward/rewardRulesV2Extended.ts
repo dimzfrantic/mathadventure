@@ -89,8 +89,9 @@ export function calculateSessionRewardV2Extended(
   }
 
   // Step 3: Apply Challenge multiplier
-  // Use sessionStars (effort credit) as base for multiplier, add speed bonus
-  let finalStars = baseReward.sessionStars + speedBonusStars
+  // For regular: finalStars = collectibleStars (no multiplier)
+  // For challenge: finalStars = floor((collectibleStars + speedBonus) * 1.5)
+  let finalStars = baseReward.collectibleStars + speedBonusStars
   let challengeMultiplierApplied = false
 
   if (input.mode === 'challenge') {
