@@ -8,6 +8,7 @@ import type { DrillLevel, Level5Sublevel, OperationMode } from './domain'
 import './math-drill.css'
 import ChallengeApp, { type ChallengeConfiguration } from './ChallengeApp'
 import SessionCountdown from './SessionCountdown'
+import { SessionRewardStars } from './SessionRewardStars'
 import SessionDurationControl from './SessionDurationControl'
 import { loadSessionDurationPreference, saveSessionDurationPreference } from './persistence/sessionTimer'
 import type { SessionDurationMs } from './persistence/sessionTimer'
@@ -97,6 +98,7 @@ export default function MathDrillApp({ onExit, persistenceFactory }: { onExit: (
   const [generationError, setGenerationError] = useState('')
   const [confirmReplace, setConfirmReplace] = useState(false)
   const [confirmConflict, setConfirmConflict] = useState<'reload' | 'exit' | null>(null)
+  const [reloadingLatest, setReloadingLatest] = useState(false)
   const lastSeed = useRef<number | null>(null)
   const headingRef = useRef<HTMLHeadingElement | null>(null)
   const choicesRef = useRef<HTMLDivElement | null>(null)
@@ -119,6 +121,21 @@ export default function MathDrillApp({ onExit, persistenceFactory }: { onExit: (
   const roundNumber = session ? Math.floor(questionIndex / session.roundSize) + 1 : 1
 
   useEffect(() => { saveSessionDurationPreference(sessionDuration) }, [sessionDuration])
+
+  useEffect(() => {
+    if (reloadingLatest && persistenceState.status !== 'loading' && persistenceState.status !== 'conflict' && persistenceState.status !== 'completion') setReloadingLatest(false)
+  }, [reloadingLatest, persistenceState.status])
+
+  function reloadLatest() {
+    setReloadingLatest(true)
+    setView('menu')
+    void controller?.reloadFromStorage('regular')
+  }
+
+  function returnToDrillSetup() {
+    controller?.dismissInvalidCompletion()
+    setView('configure')
+  }
 
   useEffect(() => {
     if (!confirmExit && screen !== 'configure') headingRef.current?.focus()
@@ -183,7 +200,7 @@ export default function MathDrillApp({ onExit, persistenceFactory }: { onExit: (
           const action = confirmConflict
           setConfirmConflict(null)
           if (action === 'exit') leave()
-          else { setView('menu'); void controller?.reloadFromStorage('regular') }
+          else reloadLatest()
         }}>Ya, Buang Perubahan</button>
       </div>
     </section></main>
@@ -216,13 +233,12 @@ export default function MathDrillApp({ onExit, persistenceFactory }: { onExit: (
     <main className="drill-shell">
       <div className="drill-topline">
         <span className="drill-brand">Math Adventure · Latihan</span>
-        {screen === 'configure' && persistenceState.status !== 'saving' && persistenceState.status !== 'failed' && persistenceState.status !== 'conflict' && persistenceState.status !== 'completion' && <div className="drill-mode-switch" role="group" aria-label="Pilih mode">
+        {screen === 'configure' && !(reloadingLatest && persistenceState.status === 'loading') && persistenceState.status !== 'saving' && persistenceState.status !== 'failed' && persistenceState.status !== 'conflict' && persistenceState.status !== 'completion' && <div className="drill-mode-switch" role="group" aria-label="Pilih mode">
           <button type="button" aria-pressed={!isChallenge} onClick={() => setIsChallenge(false)}>Latihan Biasa</button>
           <button type="button" aria-pressed={isChallenge} onClick={() => setIsChallenge(true)}>Tantangan Campuran</button>
         </div>}
         <button type="button" className="drill-back" onClick={exit}>Kembali</button>
       </div>
-      {snapshot?.schemaVersion === 2 && view === 'play' && <SessionCountdown snapshot={snapshot} />}
 
       {view === 'menu' && persistenceState.status === 'ready' && snapshot && <section className="drill-card" aria-labelledby="saved-title">
         <h1 id="saved-title">Sesi latihan tersimpan</h1>
@@ -251,7 +267,7 @@ export default function MathDrillApp({ onExit, persistenceFactory }: { onExit: (
         <button type="button" className="drill-primary" onClick={() => { if (persistenceState.operation === 'load') void controller?.reloadFromStorage('regular'); else void controller?.retryPendingSave() }}>{persistenceState.operation === 'load' ? 'Coba Muat Lagi' : 'Coba Simpan Lagi'}</button>
         <button type="button" className="drill-secondary" onClick={() => setConfirmExit(true)}>Kembali ke Menu</button>
       </section>}
-      {persistenceState.status === 'completion' && <CompletionStatus state={persistenceState} onRetry={() => void controller?.retryPendingSave()} onVerify={() => void controller?.verifyPendingCompletion()} onReload={() => { setView('menu'); void controller?.reloadFromStorage('regular') }} />}
+      {persistenceState.status === 'completion' && <CompletionStatus state={persistenceState} onRetry={() => void controller?.retryPendingSave()} onVerify={() => void controller?.verifyPendingCompletion()} onReload={reloadLatest} onDismiss={returnToDrillSetup} />}
       {persistenceState.status === 'saving' && persistenceState.operation !== 'save' && <p role="status" aria-live="polite">Menyimpan…</p>}
       {persistenceState.status === 'loading' && <section className="drill-card" aria-busy="true"><p role="status">Memuat sesi latihan…</p></section>}
       {screen === 'configure' && persistenceState.status !== 'loading' && persistenceState.status !== 'unrecoverable' && persistenceState.status !== 'conflict' && persistenceState.status !== 'failed' && persistenceState.status !== 'completion' && (canConfigure || (view === 'menu' && !snapshot)) && (view === 'configure' || persistenceState.status === 'empty' || (view === 'menu' && !snapshot)) && (
@@ -297,6 +313,7 @@ export default function MathDrillApp({ onExit, persistenceFactory }: { onExit: (
         <section className="drill-card drill-question" aria-labelledby="drill-question-title">
           <div className="drill-progress">
             <span>Soal <strong>{questionIndex + 1} / {session.questions.length}</strong></span>
+            {snapshot?.schemaVersion === 2 && <SessionCountdown snapshot={snapshot} />}
             <span>Ronde {roundNumber} / {session.rounds.length}</span>
           </div>
           <progress value={questionIndex + (response?.status === 'completed' ? 1 : 0)} max={session.questions.length} aria-label="Progres latihan" />
@@ -316,7 +333,10 @@ export default function MathDrillApp({ onExit, persistenceFactory }: { onExit: (
 
       {screen === 'round' && session && (
         <section className="drill-card drill-transition" aria-labelledby="drill-round-title">
-          <p className="drill-kicker">RONDE {roundNumber}</p>
+          <div className="drill-card-header-bar">
+            <p className="drill-kicker">RONDE {roundNumber}</p>
+            {snapshot?.schemaVersion === 2 && <SessionCountdown snapshot={snapshot} />}
+          </div>
           <h1 id="drill-round-title" ref={headingRef} tabIndex={-1}>Ronde selesai</h1>
           <p className="drill-muted">Kamu sudah mengerjakan {questionIndex + 1} soal. Siap untuk ronde berikutnya?</p>
           <button type="button" className="drill-primary drill-wide" disabled={blocked} onClick={nextRound}>Lanjut ronde</button>
@@ -328,6 +348,14 @@ export default function MathDrillApp({ onExit, persistenceFactory }: { onExit: (
           <p className="drill-kicker">{phase === 'timeout' ? 'WAKTU HABIS' : 'LATIHAN SELESAI'}</p>
           <h1 id="drill-result-title" ref={headingRef} tabIndex={-1}>{phase === 'timeout' ? 'Waktu habis' : 'Latihan selesai'}</h1>
           <p className="drill-muted">{phase === 'timeout' ? 'Sesi berakhir otomatis. Jawab soal berikutnya pada sesi lain.' : 'Terima kasih sudah mencoba dan berlatih.'}</p>
+          <SessionRewardStars
+            mode="regular"
+            plannedCount={metrics.planned}
+            completedCount={metrics.completed}
+            totalPoints={metrics.firstTryCorrect + 0.5 * metrics.secondTryCorrect}
+            isTimeout={phase === 'timeout'}
+            snapshot={snapshot}
+          />
           <div className="drill-score"><span>Skor latihan</span><strong data-testid="weighted-score">{Math.round(metrics.weightedScore)}%</strong></div>
           <dl className="drill-metrics">
             <div><dt>Soal selesai</dt><dd data-testid="completed">{metrics.completed} dari {metrics.planned}</dd></div>

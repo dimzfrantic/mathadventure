@@ -55,6 +55,7 @@ export interface SessionController {
   enableRetry(): Promise<SessionControllerState>
   retryPendingSave(): Promise<SessionControllerState>
   verifyPendingCompletion(): Promise<SessionControllerState>
+  dismissInvalidCompletion(): SessionControllerState
   discardLocalChanges(): void
   advanceManual(): Promise<SessionControllerState>
   continueRound(): Promise<SessionControllerState>
@@ -82,6 +83,7 @@ export function createSessionController(options: SessionControllerOptions): Sess
   let timerHandle: unknown = null
   let timeoutHandle: unknown = null
   let completion: CompletionAttempt | null = null
+  let invalidCompletion: SavedSession | null = null
   let completionEpoch = 0
   let reconciling = false
   const candidate = options.store as IndexedDbSessionStore & Partial<CompletionCapability>
@@ -371,18 +373,28 @@ export function createSessionController(options: SessionControllerOptions): Sess
     async startSession(session, instanceId, durationMs) {
       if (disposed || state.status !== 'empty') return state
       const snapshot = makeDraft(session, instanceId, durationMs)
-      setState({ status: 'saving', snapshot, operation: 'create' })
+      const replaceTarget = invalidCompletion
+      invalidCompletion = null
+      const operation = replaceTarget ? 'replace' as const : 'create' as const
+      const expected = replaceTarget ? { instanceId: replaceTarget.instanceId, sessionId: replaceTarget.sessionId, revision: replaceTarget.revision } : undefined
+      setState({ status: 'saving', snapshot, operation })
       if (disposed) return state
       let result
       try {
-        result = await options.store.create(snapshot)
+        result = replaceTarget
+          ? await options.store.replace(snapshot, expected!)
+          : await options.store.create(snapshot)
       } catch {
-        setState({ status: 'failed', snapshot, operation: 'create', code: 'unexpected' })
+        setState(expected
+          ? { status: 'failed', snapshot, operation: 'replace', code: 'unexpected', expected }
+          : { status: 'failed', snapshot, operation: 'create', code: 'unexpected' })
         return state
       }
       if (result.status === 'success') { setState({ status: 'ready', snapshot: result.value }); scheduleAutoAdvance(result.value) }
-      else if (result.status === 'storage-error') setState({ status: 'failed', snapshot, operation: 'create', code: result.code })
-      else if (result.status === 'conflict') setState({ status: 'conflict', snapshot, operation: 'create', reason: result.reason })
+      else if (result.status === 'storage-error') setState(expected
+        ? { status: 'failed', snapshot, operation: 'replace', code: result.code, expected }
+        : { status: 'failed', snapshot, operation: 'create', code: result.code })
+      else if (result.status === 'conflict') setState({ status: 'conflict', snapshot, operation, reason: result.reason })
       else setState({ status: 'unrecoverable', mode: snapshot.mode, result })
       return state
     },
@@ -438,6 +450,14 @@ export function createSessionController(options: SessionControllerOptions): Sess
         else if (result.status === 'storage-error') setState({ status: 'failed', snapshot: failed.snapshot, operation: 'replace', code: result.code, expected: failed.expected })
         else setState({ status: 'unrecoverable', mode: failed.snapshot.mode, result })
       } catch { setState({ status: 'failed', snapshot: failed.snapshot, operation: 'replace', code: 'unexpected', expected: failed.expected }) }
+      return state
+    },
+    dismissInvalidCompletion() {
+      if (disposed || state.status !== 'completion' || state.stage !== 'invalid') return state
+      invalidCompletion = state.snapshot
+      clearTimer()
+      completion = null
+      setState({ status: 'empty' })
       return state
     },
     discardLocalChanges() {

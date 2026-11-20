@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { answerQuestion, createScoreState, generateChallengeSession, generateSession } from '../src/features/math-drill/domain'
 import { projectCompletedSession } from '../src/features/math-drill/persistence/completedSessionProjection'
 import { createIndexedDbSessionStore, SESSION_DATABASE_VERSION, UNIFIED_DATABASE_VERSION } from '../src/features/math-drill/persistence/indexedDbSessionStore'
+import { DATABASE_SCHEMA_VERSION } from '../src/features/math-drill/persistence/databaseSchema'
 import { createUnifiedIndexedDbSessionStore } from '../src/features/math-drill/persistence/completedSessionHistoryStore'
 import type { CompletedSessionRecordV1 } from '../src/features/math-drill/persistence/completedSessionTypes'
 import type { SavedSessionV1 } from '../src/features/math-drill/persistence/sessionTypes'
@@ -176,9 +177,13 @@ describe('Stage 5B.2C database safety boundary', () => {
     store.close()
   })
 
-  it('keeps the default application factory on v1 while the explicit unified provider is v2', async () => {
+  it('keeps the default application factory on v1 while the explicit unified provider uses the shared schema version', async () => {
     expect(SESSION_DATABASE_VERSION).toBe(1)
-    expect(UNIFIED_DATABASE_VERSION).toBe(2)
+    // Stage 7B-A2 (P0-1): unified == DATABASE_SCHEMA_VERSION (4), not v1+1,
+    // so the session store and the reward store open `math-adventure` at the
+    // same version instead of fighting over it with VersionError.
+    expect(UNIFIED_DATABASE_VERSION).toBe(DATABASE_SCHEMA_VERSION)
+    expect(UNIFIED_DATABASE_VERSION).toBeGreaterThan(SESSION_DATABASE_VERSION)
     if (!factory) return
     const name = databaseName()
     const store = createIndexedDbSessionStore({ databaseName: name, indexedDB: factory })

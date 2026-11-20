@@ -1,14 +1,15 @@
 import type { CompletedSessionRecord } from '../persistence/completedSessionTypes'
-import { compareCompletionContent, validateCompletedSession } from '../persistence/completedSessionCodec'
+import { compareCompletionContent, validateCompletedSession, classifyLegacySessionUnscorable } from '../persistence/completedSessionCodec.ts'
 import type {
   ConflictedSessionReward,
+  ExcludedLegacySessionReward,
   RewardCollectionSummaryV1,
   SessionRewardEvaluation,
   SessionRewardV1,
   SessionRewardV2Extended,
 } from './rewardTypes'
-import { calculateSessionRewardV1 } from './rewardRulesV1'
-import { calculateSessionRewardV2Extended } from './rewardRulesV2Extended'
+import { calculateSessionRewardV1 } from './rewardRulesV1.ts'
+import { calculateSessionRewardV2Extended } from './rewardRulesV2Extended.ts'
 
 function extractInstanceId(record: unknown): string | undefined {
   if (record && typeof record === 'object' && 'instanceId' in record && typeof (record as { instanceId?: unknown }).instanceId === 'string') {
@@ -102,6 +103,7 @@ export function evaluateCompletedSessionRewardV1(record: unknown): SessionReward
  */
 export function aggregateRewardCollectionV1(records: readonly unknown[]): RewardCollectionSummaryV1 {
   const validSessions = new Map<string, { record: CompletedSessionRecord; reward: SessionRewardV1 }>()
+  const excludedSessions = new Map<string, { record: unknown; exclusion: ExcludedLegacySessionReward }>()
   const conflictedIds = new Set<string>()
   const conflicts: ConflictedSessionReward[] = []
   let duplicatesIgnoredCount = 0
@@ -109,41 +111,101 @@ export function aggregateRewardCollectionV1(records: readonly unknown[]): Reward
 
   for (const raw of records) {
     const validation = validateCompletedSession(raw)
-    if (validation.status !== 'valid') {
-      invalidRecordsCount++
-      continue
-    }
+    if (validation.status === 'valid') {
+      const rec = validation.value
+      const id = rec.instanceId
 
-    const rec = validation.value
-    const id = rec.instanceId
+      if (conflictedIds.has(id)) {
+        continue
+      }
 
-    if (conflictedIds.has(id)) {
-      continue
-    }
-
-    const existing = validSessions.get(id)
-    if (existing) {
-      const comparison = compareCompletionContent(existing.record, rec)
-      if (comparison === 'equivalent') {
-        duplicatesIgnoredCount++
-      } else {
+      // If an excluded legacy session already claimed this ID:
+      if (excludedSessions.has(id)) {
         // Conflicting record with same instanceId: disqualify both!
+        excludedSessions.delete(id)
+        conflictedIds.add(id)
+        conflicts.push({
+          instanceId: id,
+          reason: 'conflicting-content',
+        })
+        continue
+      }
+
+      const existing = validSessions.get(id)
+      if (existing) {
+        const comparison = compareCompletionContent(existing.record, rec)
+        if (comparison === 'equivalent') {
+          duplicatesIgnoredCount++
+        } else {
+          // Conflicting record with same instanceId: disqualify both!
+          validSessions.delete(id)
+          conflictedIds.add(id)
+          conflicts.push({
+          instanceId: id,
+          reason: 'conflicting-content',
+        })
+        }
+        continue
+      }
+
+      const evalResult = evaluateCompletedSessionRewardV1(rec)
+      if (evalResult.status === 'valid') {
+        validSessions.set(id, { record: rec, reward: evalResult.reward })
+      } else {
+        invalidRecordsCount++
+      }
+      continue
+    }
+
+    // Validation failed: check if it qualifies as an excluded legacy session
+    const exclusion = classifyLegacySessionUnscorable(raw)
+    if (exclusion.isUnscorable && exclusion.instanceId) {
+      const id = exclusion.instanceId
+
+      if (conflictedIds.has(id)) {
+        continue
+      }
+
+      // If a valid session already claimed this ID:
+      if (validSessions.has(id)) {
         validSessions.delete(id)
         conflictedIds.add(id)
         conflicts.push({
           instanceId: id,
           reason: 'conflicting-content',
         })
+        continue
       }
+
+      const existingExcluded = excludedSessions.get(id)
+      if (existingExcluded) {
+        // Compare raw facts for duplicate vs conflict
+        const leftFacts = JSON.stringify(existingExcluded.record)
+        const rightFacts = JSON.stringify(raw)
+        if (leftFacts === rightFacts) {
+          duplicatesIgnoredCount++
+        } else {
+          excludedSessions.delete(id)
+          conflictedIds.add(id)
+          conflicts.push({
+            instanceId: id,
+            reason: 'conflicting-content',
+          })
+        }
+        continue
+      }
+
+      excludedSessions.set(id, {
+        record: raw,
+        exclusion: {
+          instanceId: id,
+          reason: 'LEGACY_SESSION_UNSCORABLE',
+        },
+      })
       continue
     }
 
-    const evalResult = evaluateCompletedSessionRewardV1(rec)
-    if (evalResult.status === 'valid') {
-      validSessions.set(id, { record: rec, reward: evalResult.reward })
-    } else {
-      invalidRecordsCount++
-    }
+    invalidRecordsCount++
   }
 
   let totalSessionStars = 0
@@ -165,6 +227,11 @@ export function aggregateRewardCollectionV1(records: readonly unknown[]): Reward
     }
   }
 
+  const excludedLegacySessions: ExcludedLegacySessionReward[] = Array.from(
+    excludedSessions.values(),
+    item => item.exclusion
+  )
+
   return {
     totalSessionStars,
     totalCollectibleStars,
@@ -174,5 +241,7 @@ export function aggregateRewardCollectionV1(records: readonly unknown[]): Reward
     duplicatesIgnoredCount,
     invalidRecordsCount,
     conflicts,
+    excludedLegacySessionsCount: excludedLegacySessions.length,
+    excludedLegacySessions,
   }
 }

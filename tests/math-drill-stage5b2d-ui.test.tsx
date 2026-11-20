@@ -90,4 +90,18 @@ describe.each([false, true])('Stage 5B.2D %s UI with actual controller', challen
     expect(screen.getByRole('button', { name: challenge ? 'Tantangan lagi' : 'Latihan lagi' })).toBeEnabled()
     expect(h.commit).toHaveBeenCalledTimes(1)
   })
+
+  it('returns to the practice-mode choices when the stored result is invalid', async () => {
+    const h = harness(challenge)
+    h.commit.mockResolvedValueOnce({ status: 'invalid-history' } as never)
+    render(challenge ? <ChallengeApp onExit={vi.fn()} onBackToRegular={vi.fn()} persistenceFactory={h.factory} /> : <MathDrillApp onExit={vi.fn()} persistenceFactory={h.factory} />)
+    await settle(); fireEvent.click(screen.getByRole('button', { name: 'Lanjutkan' })); await settle()
+    fireEvent.click(screen.getByRole('button', { name: 'Lanjut' })); await settle()
+    expect(screen.getByText('Data hasil atau riwayat tidak dapat diverifikasi. Data tidak dihapus atau diganti.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Muat Sesi Terbaru' }))
+    await settle()
+    expect(screen.getByRole('group', { name: 'Pilih mode' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Latihan Biasa' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Tantangan Campuran' })).toBeInTheDocument()
+  })
 })

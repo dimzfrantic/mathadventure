@@ -16,34 +16,27 @@
  * store already exists (data-safe for live v2/v3 databases).
  */
 
-export const STAGE7B_DATABASE_VERSION = 4
+import { DATABASE_SCHEMA_VERSION, upgradeDatabaseSchema } from '../../persistence/databaseSchema'
 
 /**
- * Safely upgrades an existing v2/v3 IndexedDB database to v4 by creating
- * the required redemption/session stores if they do not already exist.
+ * @deprecated Stage 7B-A2 (P0-1): the version is owned by
+ * `persistence/databaseSchema.ts` so that the session store and the reward
+ * store cannot drift apart again. Kept as an alias for existing imports.
+ */
+export const STAGE7B_DATABASE_VERSION = DATABASE_SCHEMA_VERSION
+
+/**
+ * Safely upgrades an existing IndexedDB database to the canonical schema
+ * version by creating the required stores/indexes if they do not exist.
+ *
+ * Delegates to `upgradeDatabaseSchema()` — the single schema authority — so the
+ * reward store and the session/history store always produce the exact same
+ * schema for the shared `math-adventure` database.
  *
  * Adheres strictly to the database safety contract:
  * - Does NOT modify activeSessions or completedSessions that already exist.
  * - Is idempotent (checks objectStoreNames before creating).
  */
-export function upgradeDatabaseToVersion3(db: IDBDatabase): void {
-  if (!db.objectStoreNames.contains('rewardTransactions')) {
-    const txStore = db.createObjectStore('rewardTransactions', {
-      keyPath: 'transactionId',
-    })
-    txStore.createIndex('status', 'status', { unique: false })
-    txStore.createIndex('requestedAt', 'requestedAt', { unique: false })
-  }
-
-  if (!db.objectStoreNames.contains('rewardConfig')) {
-    db.createObjectStore('rewardConfig', { keyPath: 'configId' })
-  }
-
-  if (!db.objectStoreNames.contains('completedSessions')) {
-    db.createObjectStore('completedSessions', { keyPath: 'instanceId' })
-  }
-
-  if (!db.objectStoreNames.contains('rewardCorrections')) {
-    db.createObjectStore('rewardCorrections', { keyPath: 'correctionId' })
-  }
+export function upgradeDatabaseToVersion3(db: IDBDatabase, tx?: IDBTransaction | null): void {
+  upgradeDatabaseSchema(db, tx)
 }

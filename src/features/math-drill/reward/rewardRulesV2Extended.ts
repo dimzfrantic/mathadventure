@@ -1,5 +1,5 @@
 import type { SessionRewardInputV1, SessionRewardV1 } from './rewardTypes'
-import { calculateSessionRewardV1 } from './rewardRulesV1'
+import { calculateSessionRewardV1 } from './rewardRulesV1.ts'
 
 /**
  * Extended reward calculation for Phase 2 — adds conditional speed bonus for Challenge

@@ -2,10 +2,12 @@
  * Stage 7B Phase 5 — Reward Persistence Adapter (IndexedDB v3)
  *
  * Owns the `rewardTransactions` and `rewardConfig` stores inside the shared
- * `math-adventure` database. Opens the database at STAGE7B_DATABASE_VERSION (3);
- * the upgrade handler delegates to the additive-only migration helper from
- * Phase 3, so existing v2 stores (`activeSessions`, `completedSessions`) and
- * their data are never touched or re-created.
+ * `math-adventure` database. Opens the database at DATABASE_SCHEMA_VERSION
+ * (4, via the STAGE7B_DATABASE_VERSION alias); the upgrade handler delegates to
+ * the additive-only migration helper, so existing stores (`activeSessions`,
+ * `completedSessions`) and their data are never touched or re-created.
+ * Stage 7B-A2 (P0-1): the session/history store opens the same database at the
+ * same version, so both owners can be live simultaneously.
  *
  * Safety contract (mirrors the session store discipline):
  * - Disposable test databases must use the UNIFIED_DISPOSABLE_DATABASE_PREFIX.
@@ -166,7 +168,7 @@ export class RewardIndexedDbStore {
       try { request = this.factory!.open(this.databaseName, STAGE7B_DATABASE_VERSION) }
       catch { fail('open-failed'); return }
       request.onupgradeneeded = () => {
-        try { upgradeDatabaseToVersion3(request.result) }
+        try { upgradeDatabaseToVersion3(request.result, request.transaction) }
         catch {
           try { request.transaction?.abort() } catch { /* open request reports failure */ }
         }

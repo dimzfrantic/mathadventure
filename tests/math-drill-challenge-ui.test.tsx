@@ -296,6 +296,27 @@ describe('Challenge persistence', () => {
     expect(choices().every(button => !button.disabled)).toBe(true)
     expect(persistence.records.challenge?.revision).toBe(saved.revision + 1)
   })
+  it('keeps mode choices hidden while reloading a conflicted challenge', async () => {
+    render(<ChallengeApp onExit={vi.fn()} onBackToRegular={vi.fn()} />)
+    await settle(); await startChallenge()
+    const latest = { ...persistence.records.challenge!, revision: persistence.records.challenge!.revision + 1 }
+    persistence.records.challenge = latest
+    await answerCorrect()
+    await click(screen.getByRole('button', { name: 'Muat Sesi Terbaru' }))
+    const gate = deferred()
+    persistence.beforeLoad = () => gate.promise
+    fireEvent.click(screen.getByRole('button', { name: 'Ya, Buang Perubahan' }))
+    await settle()
+    expect(screen.getByText('Memuat sesi tantangan…')).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Pilih mode' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Sesi tantangan tersimpan' })).not.toBeInTheDocument()
+    expect(persistence.records.challenge).toEqual(latest)
+    await act(async () => { gate.resolve() })
+    expect(screen.getByRole('heading', { name: 'Sesi tantangan tersimpan' })).toBeInTheDocument()
+    await click(screen.getByRole('button', { name: 'Lanjutkan' }))
+    expect(choices().every(button => !button.disabled)).toBe(true)
+    expect(persistence.records.challenge).toEqual(latest)
+  })
   it('disposes an in-flight save and reloads whatever became durable on remount', async () => {
     const first = render(<StrictMode><ChallengeApp onExit={vi.fn()} onBackToRegular={vi.fn()} /></StrictMode>)
     await settle(); await startChallenge()

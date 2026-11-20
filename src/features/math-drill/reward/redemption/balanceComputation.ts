@@ -17,11 +17,11 @@
  * `rawAvailableBalance` alongside the display-clamped `availableBalance`.
  */
 
-import { aggregateRewardCollectionV1 } from '../rewardEngine'
+import { aggregateRewardCollectionV1 } from '../rewardEngine.ts'
 import type { RewardCollectionSummaryV1 } from '../rewardTypes'
 import type { RewardTransaction } from './redemptionTypes'
-import { validateRewardTransaction } from './redemptionValidation'
-import { validateRewardCorrection, type RewardCorrection } from './correctionTypes'
+import { validateRewardTransaction } from './redemptionValidation.ts'
+import { validateRewardCorrection, type RewardCorrection } from './correctionTypes.ts'
 
 // ---------------------------------------------------------------------------
 // Result Interfaces

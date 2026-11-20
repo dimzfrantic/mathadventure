@@ -1,11 +1,25 @@
 import { validateSavedSession } from './sessionCodec'
+import {
+  ACTIVE_SESSIONS_STORE,
+  COMPLETED_SESSIONS_STORE,
+  DATABASE_SCHEMA_VERSION,
+  upgradeDatabaseSchema,
+} from './databaseSchema'
 import type { SavedChallengeSessionV1, SavedRegularSessionV1, SavedChallengeSessionV2, SavedRegularSessionV2, SavedSession, SavedSessionMode, SavedSessionValidation } from './sessionTypes'
 
 export const SESSION_DATABASE_NAME = 'math-adventure'
+/** Legacy single-store schema version (`activeSessions` only). Unchanged. */
 export const SESSION_DATABASE_VERSION = 1
-export const UNIFIED_DATABASE_VERSION = SESSION_DATABASE_VERSION + 1
-export const SESSION_OBJECT_STORE = 'activeSessions'
-export const HISTORY_OBJECT_STORE = 'completedSessions'
+/**
+ * Stage 7B-A2 (P0-1): the unified/live schema version is owned by
+ * `databaseSchema.ts`, so the session/history store and the reward store open
+ * the shared `math-adventure` database at the SAME version. Previously this was
+ * `SESSION_DATABASE_VERSION + 1` (2) while the reward store opened at 4, which
+ * made the second opener fail with `VersionError`.
+ */
+export const UNIFIED_DATABASE_VERSION = DATABASE_SCHEMA_VERSION
+export const SESSION_OBJECT_STORE = ACTIVE_SESSIONS_STORE
+export const HISTORY_OBJECT_STORE = COMPLETED_SESSIONS_STORE
 export const UNIFIED_DISPOSABLE_DATABASE_PREFIX = 'math-adventure-stage5b2c-'
 // This authority is deliberately not exported; ordinary v2 constructors stay disposable-only.
 const LIVE_V2_AUTHORITY = Symbol('live-v2-explicit-composition')
@@ -265,28 +279,18 @@ export class NativeIndexedDbSessionStore implements IndexedDbSessionStore {
         try {
           const db = request.result
           const tx = request.transaction
+          if (this.databaseVersion === UNIFIED_DATABASE_VERSION) {
+            // Stage 7B-A2 (P0-1): one shared, additive upgrade path creates
+            // activeSessions, completedSessions (+ indexes) AND the reward
+            // stores, so both owners always see the identical schema.
+            upgradeDatabaseSchema(db, tx)
+            return
+          }
           let active: IDBObjectStore
           if (!db.objectStoreNames.contains(SESSION_OBJECT_STORE)) active = db.createObjectStore(SESSION_OBJECT_STORE, { keyPath: 'mode' })
           else {
             active = tx!.objectStore(SESSION_OBJECT_STORE)
             if (active.keyPath !== 'mode') throw new Error('active-key-path')
-          }
-          if (this.databaseVersion === UNIFIED_DATABASE_VERSION) {
-            let history: IDBObjectStore
-            if (!db.objectStoreNames.contains(HISTORY_OBJECT_STORE)) history = db.createObjectStore(HISTORY_OBJECT_STORE, { keyPath: 'instanceId' })
-            else {
-              history = tx!.objectStore(HISTORY_OBJECT_STORE)
-              if (history.keyPath !== 'instanceId') throw new Error('history-key-path')
-            }
-            const ensureIndex = (name: string, keyPath: string) => {
-              if (!history.indexNames.contains(name)) history.createIndex(name, keyPath, { unique: false })
-              else {
-                const index = history.index(name)
-                if (index.keyPath !== keyPath || index.unique) throw new Error(`history-index-${name}`)
-              }
-            }
-            ensureIndex('recordedAt', 'recordedAt')
-            ensureIndex('sessionId', 'sessionId')
           }
         } catch {
           openError = 'incompatible-database'

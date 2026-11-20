@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, act } from '@testing-library/react'
 import { ParentDashboard } from '../src/features/math-drill/ParentDashboard'
 import * as pinAuth from '../src/features/math-drill/parentPinAuth'
+import { clearParentSessionToken } from '../src/features/math-drill/api/sessionApi'
 import type { CompletedSessionRecord } from '../src/features/math-drill/persistence/completedSessionTypes'
 import type { UnifiedIndexedDbSessionStore } from '../src/features/math-drill/persistence/completedSessionHistoryStore'
 import type { RewardTransaction } from '../src/features/math-drill/reward'
@@ -19,6 +20,7 @@ function fakeStore(records: readonly CompletedSessionRecord[] = []) {
 describe('Phase 7B Parent Dashboard Security & Authentication Tests', () => {
   beforeEach(() => {
     localStorage.clear()
+    clearParentSessionToken()
     pinAuth.clearPinVerifier()
     pinAuth.resetAttemptState()
     vi.restoreAllMocks()
@@ -110,7 +112,9 @@ describe('Phase 7B Parent Dashboard Security & Authentication Tests', () => {
     fireEvent.click(submitBtn)
 
     expect(await screen.findByRole('heading', { name: /dashboard orang tua/i })).toBeInTheDocument()
-    expect(screen.getByText(/akses orang tua terbuka/i)).toBeInTheDocument()
+    // Finding A: when rendered without a reward controller/backend, the dashboard
+    // does not falsely claim that parent access to rewards is open.
+    expect(screen.getByTestId('parent-access-status').textContent).toMatch(/layanan reward tidak dikonfigurasi/i)
   })
 
   // 4. PIN tidak tersedia atau rusak di storage
@@ -132,14 +136,28 @@ describe('Phase 7B Parent Dashboard Security & Authentication Tests', () => {
     expect(screen.queryByRole('heading', { name: /dashboard orang tua/i })).not.toBeInTheDocument()
   })
 
-  // 5. Web Crypto API tidak tersedia atau gagal
-  it('5. locks dashboard completely and does not open when Web Crypto API is unavailable', async () => {
+  // 5. Non-secure context: crypto.subtle absent but the local PIN gate still works
+  it('5. keeps the local PIN gate usable when crypto.subtle is unavailable (plain-HTTP LAN origin)', async () => {
+    // On http://<lan-ip>:4180 the browser exposes no crypto.subtle. The PIN gate
+    // must degrade to the pure-JS PBKDF2 fallback instead of dead-ending.
     vi.spyOn(pinAuth, 'isWebCryptoAvailable').mockReturnValue(false)
 
     const { store } = fakeStore([])
     render(<ParentDashboard store={store} onBack={vi.fn()} />)
 
-    expect(await screen.findByText(/peramban tidak mendukung keamanan yang diperlukan/i)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /buat pin orang tua/i })).toBeInTheDocument()
+    expect(screen.queryByText(/tidak mendukung keamanan yang diperlukan/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /dashboard orang tua/i })).not.toBeInTheDocument()
+  })
+
+  // 5b. Without a CSPRNG there is no salt, so the gate must refuse honestly
+  it('5b. refuses honestly only when the browser provides no CSPRNG at all', async () => {
+    vi.spyOn(pinAuth, 'isPinGateSupported').mockReturnValue(false)
+
+    const { store } = fakeStore([])
+    render(<ParentDashboard store={store} onBack={vi.fn()} />)
+
+    expect(await screen.findByText(/peramban tidak mendukung pembuatan pin lokal/i)).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /dashboard orang tua/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /buka dashboard/i })).not.toBeInTheDocument()
   })

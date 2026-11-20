@@ -10,7 +10,7 @@
  * for rigorous testing of concurrency, retries, idempotency, and state invariants.
  */
 
-import { computeAvailableBalance } from './balanceComputation'
+import { computeAvailableBalance } from './balanceComputation.ts'
 import type {
   RewardConfig,
   RewardTransaction,
@@ -18,7 +18,7 @@ import type {
   ConfirmedRewardTransaction,
   CancelledRewardTransaction,
 } from './redemptionTypes'
-import { validateRewardTransaction } from './redemptionValidation'
+import { validateRewardTransaction } from './redemptionValidation.ts'
 
 // ---------------------------------------------------------------------------
 // Operation Result Types

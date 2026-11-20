@@ -7,12 +7,14 @@ import {
   getParentSessionToken,
   setParentSessionToken,
   clearParentSessionToken,
+  restoreParentSessionToken,
   updateConfig,
   getConfig,
 } from '../src/features/math-drill/api/sessionApi'
 
 describe('Backend Parent Authentication & Authorization Tests', () => {
   beforeEach(() => {
+    localStorage.clear()
     clearParentSessionToken()
     vi.restoreAllMocks()
   })
@@ -21,18 +23,32 @@ describe('Backend Parent Authentication & Authorization Tests', () => {
     clearParentSessionToken()
   })
 
-  it('1. manages parent session token strictly in memory (never localStorage or cookies)', () => {
+  it('1. persists the parent session token to localStorage and restores it (Alternatif B)', () => {
     expect(getParentSessionToken()).toBeNull()
-    expect(localStorage.getItem('math-adventure-parent-session')).toBeNull()
+    expect(localStorage.getItem('math-adventure-parent-session-token')).toBeNull()
 
+    // setParentSessionToken writes to both memory and localStorage
     setParentSessionToken('test-mem-token-123')
     expect(getParentSessionToken()).toBe('test-mem-token-123')
-    // Must NOT be stored in localStorage or sessionStorage
-    expect(localStorage.getItem('math-adventure-parent-session')).toBeNull()
-    expect(sessionStorage.getItem('math-adventure-parent-session')).toBeNull()
+    expect(localStorage.getItem('math-adventure-parent-session-token')).toBe('test-mem-token-123')
+    // restoreParentSessionToken returns the in-memory token if already set
+    expect(restoreParentSessionToken()).toBe('test-mem-token-123')
+
+    // clearParentSessionToken removes from both memory and localStorage
+    clearParentSessionToken()
+    expect(getParentSessionToken()).toBeNull()
+    expect(localStorage.getItem('math-adventure-parent-session-token')).toBeNull()
+
+    // Simulate a page reload: localStorage has a token but memory is empty.
+    localStorage.setItem('math-adventure-parent-session-token', 'reload-token')
+    expect(getParentSessionToken()).toBeNull()
+    const restored = restoreParentSessionToken()
+    expect(restored).toBe('reload-token')
+    expect(getParentSessionToken()).toBe('reload-token')
 
     clearParentSessionToken()
     expect(getParentSessionToken()).toBeNull()
+    expect(localStorage.getItem('math-adventure-parent-session-token')).toBeNull()
   })
 
   it('2. checks parent auth status via API', async () => {
@@ -80,7 +96,8 @@ describe('Backend Parent Authentication & Authorization Tests', () => {
     const result = await verifyParentPin('123456')
     expect(result.success).toBe(true)
     expect(getParentSessionToken()).toBe('valid-parent-token-xyz')
-    expect(localStorage.length).toBe(0) // completely clean from persistent tokens
+    // Alternatif B: the token is persisted to localStorage for reload survival.
+    expect(localStorage.getItem('math-adventure-parent-session-token')).toBe('valid-parent-token-xyz')
   })
 
   it('5. handles wrong PIN and does not store token', async () => {

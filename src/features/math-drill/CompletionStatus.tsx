@@ -3,11 +3,12 @@ import type { SessionControllerState } from './persistence/sessionController'
 
 /** Presentation threshold only: never cancels a transaction or infers an abort. */
 export const COMPLETION_NOTICE_DELAY_MS = 5000
-export default function CompletionStatus({ state, onRetry, onVerify, onReload }: {
+export default function CompletionStatus({ state, onRetry, onVerify, onReload, onDismiss }: {
   state: Extract<SessionControllerState, { status: 'completion' }>
   onRetry: () => void
   onVerify: () => void
   onReload: () => void
+  onDismiss: () => void
 }) {
   const [elapsedFor, setElapsedFor] = useState<typeof state | null>(null)
   useEffect(() => {
@@ -28,7 +29,8 @@ export default function CompletionStatus({ state, onRetry, onVerify, onReload }:
     <div className="drill-actions">
       {uncertain && <button type="button" className="drill-primary" onClick={onVerify}>Periksa Penyimpanan</button>}
       {state.stage === 'failed' && <button type="button" className="drill-primary" onClick={onRetry}>Coba Simpan Lagi</button>}
-      {(state.stage === 'conflict' || state.stage === 'invalid') && <button type="button" className="drill-secondary" onClick={onReload}>Muat Sesi Terbaru</button>}
+      {(state.stage === 'conflict') && <button type="button" className="drill-secondary" onClick={onReload}>Muat Sesi Terbaru</button>}
+      {state.stage === 'invalid' && <button type="button" className="drill-secondary" onClick={onDismiss}>Muat Sesi Terbaru</button>}
     </div>
   </section>
 }

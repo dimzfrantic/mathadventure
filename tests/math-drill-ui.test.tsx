@@ -378,6 +378,40 @@ describe('Regular persistence integration', () => {
     await click(screen.getByRole('button', { name: 'Ya, Buang Perubahan' }))
     expect(onExit).toHaveBeenCalledTimes(1)
   })
+  it('keeps mode choices hidden while reloading a conflicted regular session', async () => {
+    render(<StrictMode><MathDrillApp onExit={vi.fn()} /></StrictMode>)
+    await settle(); await start('2', '1', 'addition')
+    const latest = { ...persistence.record!, revision: persistence.record!.revision + 1 }
+    persistence.record = latest
+    await click(choices().find(button => button.textContent !== String(currentAdditionAnswer()))!)
+    await click(screen.getByRole('button', { name: 'Muat Sesi Terbaru' }))
+    const gate = deferred()
+    persistence.beforeLoad = () => gate.promise
+    fireEvent.click(screen.getByRole('button', { name: 'Ya, Buang Perubahan' }))
+    await settle()
+    expect(screen.getByText('Memuat sesi latihan…')).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Pilih mode' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Sesi latihan tersimpan' })).not.toBeInTheDocument()
+    expect(persistence.record).toEqual(latest)
+    await act(async () => { gate.resolve() })
+    expect(screen.getByRole('heading', { name: 'Sesi latihan tersimpan' })).toBeInTheDocument()
+    await click(screen.getByRole('button', { name: 'Lanjutkan' }))
+    expect(screen.getByTestId('equation')).toBeInTheDocument()
+    expect(persistence.record).toEqual(latest)
+  })
+  it('shows new-session setup when the latest regular session is absent', async () => {
+    render(<MathDrillApp onExit={vi.fn()} />)
+    await settle(); await start('2', '1', 'addition')
+    persistence.record = { ...persistence.record!, revision: persistence.record!.revision + 1 }
+    await click(choices().find(button => button.textContent !== String(currentAdditionAnswer()))!)
+    await click(screen.getByRole('button', { name: 'Muat Sesi Terbaru' }))
+    persistence.loadResult = { status: 'empty' }
+    await click(screen.getByRole('button', { name: 'Ya, Buang Perubahan' }))
+    expect(screen.getByRole('heading', { name: 'Math Drill' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Sesi latihan tersimpan' })).not.toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Pilih mode' })).toBeInTheDocument()
+    expect(persistence.instances.at(-1)!.create).toHaveBeenCalledTimes(1)
+  })
   it('warns about pending and failed saves on exit without deleting durable data', async () => {
     const onExit = vi.fn()
     render(<MathDrillApp onExit={onExit} />)

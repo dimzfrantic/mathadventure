@@ -9,7 +9,20 @@
  * 
  * Client-side authentication provides access control against accidental
  * or unauthorized child interaction, but is not intended as server-grade security.
+ *
+ * NON-SECURE-CONTEXT FALLBACK
+ * ---------------------------
+ * `crypto.subtle` is only exposed in a secure context (HTTPS, localhost,
+ * 127.0.0.1). The built app is also opened over plain HTTP on a LAN address
+ * (e.g. a phone at `http://192.168.100.147:4180`), where the primitive is
+ * absent. Because the PIN is a local gate to keep a child out of the reward
+ * settings — not a server secret — derivation falls back to an in-repo pure-JS
+ * PBKDF2-HMAC-SHA256 that produces byte-identical output. The stored verifier
+ * format is unchanged, so existing PINs keep working on every origin.
  */
+
+import { pbkdf2Sha256 } from './crypto/pbkdf2Fallback'
+
 
 const PIN_STORAGE_KEY = 'math-adventure-parent-pin-verifier'
 const STORAGE_ATTEMPT_KEY = 'math-adventure-parent-pin-attempts'
@@ -219,32 +232,44 @@ async function generateSalt(): Promise<Uint8Array> {
 }
 
 /**
- * Derive 256 bits (32 bytes) from PIN and salt using PBKDF2-HMAC-SHA256
+ * Derive 256 bits (32 bytes) from PIN and salt using PBKDF2-HMAC-SHA256.
+ *
+ * Prefers the platform primitive. Falls back to the in-repo pure-JS
+ * implementation when `crypto.subtle` is unavailable (non-secure context, e.g.
+ * plain HTTP on a LAN address). Both paths produce identical bytes.
  */
 async function derivePinBits(pin: string, salt: Uint8Array, iterations: number): Promise<Uint8Array> {
   const encoder = new TextEncoder()
   const pinBuffer = encoder.encode(pin)
-  
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    pinBuffer,
-    'PBKDF2',
-    false,
-    ['deriveBits']
-  )
-  
-  const derivedBuffer = await crypto.subtle.deriveBits(
-    {
-      name: 'PBKDF2',
-      salt: salt as unknown as Uint8Array<ArrayBuffer>,
-      iterations,
-      hash: 'SHA-256',
-    },
-    keyMaterial,
-    PIN_CONFIG.HASH_BITS
-  )
-  
-  return new Uint8Array(derivedBuffer)
+
+  if (isWebCryptoAvailable()) {
+    try {
+      const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        pinBuffer,
+        'PBKDF2',
+        false,
+        ['deriveBits']
+      )
+
+      const derivedBuffer = await crypto.subtle.deriveBits(
+        {
+          name: 'PBKDF2',
+          salt: salt as unknown as Uint8Array<ArrayBuffer>,
+          iterations,
+          hash: 'SHA-256',
+        },
+        keyMaterial,
+        PIN_CONFIG.HASH_BITS
+      )
+
+      return new Uint8Array(derivedBuffer)
+    } catch {
+      // Platform primitive present but unusable — fall through to software.
+    }
+  }
+
+  return pbkdf2Sha256(pinBuffer, salt, iterations, PIN_CONFIG.HASH_BITS / 8)
 }
 
 /**
@@ -352,6 +377,23 @@ export function isWebCryptoAvailable(): boolean {
            typeof crypto.getRandomValues === 'function' &&
            typeof crypto.subtle.importKey === 'function' &&
            typeof crypto.subtle.deriveBits === 'function'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Check whether the local PIN gate can operate on this origin at all.
+ *
+ * Derivation works with `crypto.subtle` (secure context) or with the pure-JS
+ * PBKDF2 fallback (plain-HTTP LAN origin), so the only hard requirement is a
+ * CSPRNG for the per-PIN salt — `crypto.getRandomValues`, which every modern
+ * browser exposes regardless of secure context.
+ */
+export function isPinGateSupported(): boolean {
+  try {
+    return typeof crypto !== 'undefined' &&
+           typeof crypto.getRandomValues === 'function'
   } catch {
     return false
   }

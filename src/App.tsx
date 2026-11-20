@@ -7,6 +7,8 @@ import type { MathHistoryActivation } from './features/math-drill/persistence/hi
 import { createLiveUnifiedIndexedDbSessionStore } from './features/math-drill/persistence/completedSessionHistoryStore'
 import type { UnifiedIndexedDbSessionStore } from './features/math-drill/persistence/completedSessionHistoryStore'
 import { ParentDashboard } from './features/math-drill/ParentDashboard'
+import { createRewardWiring } from './features/math-drill/rewardWiring'
+import { ChildRedemption } from './features/math-drill/ChildRedemption'
 import './activity-navigation.css'
 
 type ConceptId = '00.1-A' | '00.1-B'
@@ -16,6 +18,11 @@ type DashboardOrigin = ConceptId | 'math-drill'
 export default function App({ historyActivation }: { readonly historyActivation?: MathHistoryActivation }) {
   const persistenceFactory = useMemo(() => selectMathDrillPersistence(historyActivation), [historyActivation])
   const dashboardStore = useMemo<UnifiedIndexedDbSessionStore | null>(() => historyActivation?.mode === 'live' ? createLiveUnifiedIndexedDbSessionStore() : null, [historyActivation])
+  // Stage 7B-A2 (P0-2): the reward controller is created once per application
+  // instance and wired into the dashboard. It talks to the authoritative
+  // backend, holds no listeners/timers, and reads the parent session token per
+  // request, so re-renders never recreate it and nothing leaks on unmount.
+  const rewardWiring = useMemo(() => createRewardWiring(), [])
   const [activeActivity, setActiveActivity] = useState<ActivityId>('00.1-A')
   const [previousConcept, setPreviousConcept] = useState<ConceptId>('00.1-A')
   const [dashboardOrigin, setDashboardOrigin] = useState<DashboardOrigin>('00.1-A')
@@ -50,9 +57,14 @@ export default function App({ historyActivation }: { readonly historyActivation?
         <DistributionApp />
       </div>
       {keepMathDrillMounted && <div hidden={activeActivity !== 'math-drill'}>
+        {activeActivity === 'math-drill' && <div className="drill-shell child-reward-placement"><ChildRedemption /></div>}
         <MathDrillApp onExit={() => setActiveActivity(previousConcept)} persistenceFactory={persistenceFactory} />
       </div>}
-      {activeActivity === 'parent-dashboard' && dashboardStore && <ParentDashboard store={dashboardStore} onBack={() => setActiveActivity(dashboardOrigin)} />}
+      {activeActivity === 'parent-dashboard' && dashboardStore && <ParentDashboard
+        store={rewardWiring.historyStore}
+        controller={rewardWiring.controller}
+        onBack={() => setActiveActivity(dashboardOrigin)}
+      />}
     </div>
   )
 }

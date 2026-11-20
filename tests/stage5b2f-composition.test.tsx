@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import App from '../src/App'
 import { selectMathDrillPersistence } from '../src/features/math-drill/persistence/historyActivation'
 import { SESSION_DATABASE_VERSION, UNIFIED_DATABASE_VERSION } from '../src/features/math-drill/persistence/indexedDbSessionStore'
+import { DATABASE_SCHEMA_VERSION } from '../src/features/math-drill/persistence/databaseSchema'
 import { createUnifiedIndexedDbSessionStore } from '../src/features/math-drill/persistence/completedSessionHistoryStore'
 
 const disposable = 'math-adventure-stage5b2c-stage5b2f-composition-unit'
@@ -12,7 +13,8 @@ describe('Stage 5B.2F composition gate', () => {
   it('defaults OFF and retains the existing v1 store selection', () => {
     expect(selectMathDrillPersistence()).toBeUndefined()
     expect(SESSION_DATABASE_VERSION).toBe(1)
-    expect(UNIFIED_DATABASE_VERSION).toBe(2)
+    // Stage 7B-A2 (P0-1): unified == DATABASE_SCHEMA_VERSION (4).
+    expect(UNIFIED_DATABASE_VERSION).toBe(DATABASE_SCHEMA_VERSION)
   })
 
   it('fails closed for an unrecognized activation flag', () => {
@@ -35,7 +37,7 @@ describe('Stage 5B.2F composition gate', () => {
     expect(options.completionMode).toBe('atomic')
     expect('commitResult' in options.store).toBe(true)
     expect(await options.store.load('regular')).toMatchObject({ status: 'storage-error', code: 'open-failed' })
-    expect(open).toHaveBeenCalledExactlyOnceWith(disposable, 2)
+    expect(open).toHaveBeenCalledExactlyOnceWith(disposable, UNIFIED_DATABASE_VERSION)
     options.store.close()
   })
 
@@ -44,7 +46,7 @@ describe('Stage 5B.2F composition gate', () => {
     render(<App historyActivation={{ mode: 'disposable', databaseName: disposable, indexedDB: { open } as unknown as IDBFactory }} />)
     fireEvent.click(screen.getByRole('button', { name: 'Math Drill · Latihan' }))
     await waitFor(() => expect(open).toHaveBeenCalled())
-    expect(open).toHaveBeenCalledExactlyOnceWith(disposable, 2)
+    expect(open).toHaveBeenCalledExactlyOnceWith(disposable, UNIFIED_DATABASE_VERSION)
   })
 
   it('keeps the general unified provider disposable-only even with an explicit composition option', async () => {

@@ -25,9 +25,10 @@ function resolveDevApiKey(): string | undefined {
   return undefined
 }
 
-const devApiKey = resolveDevApiKey()
+export default defineConfig(({ command }) => {
+  const devApiKey = command === 'serve' ? resolveDevApiKey() : undefined
 
-export default defineConfig({
+  return {
   plugins: [react(), tailwindcss()],
   server: {
     host: '0.0.0.0',
@@ -52,5 +53,6 @@ export default defineConfig({
       },
     },
   },
+  }
 })
 

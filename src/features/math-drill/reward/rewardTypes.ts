@@ -49,6 +49,11 @@ export interface ConflictedSessionReward {
   readonly reason: 'conflicting-content'
 }
 
+export interface ExcludedLegacySessionReward {
+  readonly instanceId: string
+  readonly reason: 'LEGACY_SESSION_UNSCORABLE'
+}
+
 export interface RewardCollectionSummaryV1 {
   readonly totalSessionStars: number
   readonly totalCollectibleStars: number
@@ -58,4 +63,6 @@ export interface RewardCollectionSummaryV1 {
   readonly duplicatesIgnoredCount: number
   readonly invalidRecordsCount: number
   readonly conflicts: readonly ConflictedSessionReward[]
+  readonly excludedLegacySessionsCount: number
+  readonly excludedLegacySessions: readonly ExcludedLegacySessionReward[]
 }

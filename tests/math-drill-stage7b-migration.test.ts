@@ -13,6 +13,11 @@ describe('Stage 7B — Phase 3: IndexedDB Version 3 Migration Simulation', () =>
         const indexes = new Map<string, string>()
         const storeObj = {
           keyPath: options.keyPath,
+          // Real IDBObjectStore exposes indexNames; the upgrade path checks it
+          // for idempotency, so the mock must model it faithfully.
+          indexNames: {
+            contains: (indexName: string) => indexes.has(indexName),
+          },
           createIndex: (indexName: string, keyPath: string) => {
             indexes.set(indexName, keyPath)
           },

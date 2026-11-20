@@ -24,6 +24,7 @@ coverage
 *.temp
 *.tsbuildinfo
 .cache
+.a2*
 
 # Server data directory — contains apiKey and session data, must not be committed
 server/data/

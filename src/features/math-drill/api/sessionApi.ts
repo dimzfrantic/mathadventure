@@ -46,7 +46,21 @@ export interface ApiConfig {
   maxStarsPerRedemption: number
 }
 
-// In-memory Parent session token (NEVER persisted to localStorage/sessionStorage/cookies)
+// Parent session token — persisted to localStorage (Stage 7B-A2 Alternatif B)
+// so it survives page reloads. Validated on every mount via GET /api/parent/session.
+// Stage 7B-A2 Alternatif B: the backend parent-session token is persisted to
+// localStorage so it survives page reloads. The token is a short-lived (15 min
+// sliding) bearer credential for reward reads/writes only — it is never the
+// local device PIN, and the local PIN is never sent to the backend.
+//
+// Security notes:
+//  - The token is per-origin (localStorage), so a different device on the LAN
+//    does not have it.
+//  - The token is validated on every dashboard mount via GET /api/parent/session
+//    before any reward operation; an expired/revoked token is removed.
+//  - No PIN or token is ever logged.
+const PARENT_SESSION_STORAGE_KEY = 'math-adventure-parent-session-token'
+
 let activeParentSessionToken: string | null = null
 
 export function getParentSessionToken(): string | null {
@@ -55,10 +69,46 @@ export function getParentSessionToken(): string | null {
 
 export function setParentSessionToken(token: string | null): void {
   activeParentSessionToken = token
+  try {
+    if (token) {
+      localStorage.setItem(PARENT_SESSION_STORAGE_KEY, token)
+    } else {
+      localStorage.removeItem(PARENT_SESSION_STORAGE_KEY)
+    }
+  } catch {
+    // localStorage may be unavailable (private mode, quota); the in-memory
+    // token still works for the current session.
+  }
 }
 
 export function clearParentSessionToken(): void {
   activeParentSessionToken = null
+  try {
+    localStorage.removeItem(PARENT_SESSION_STORAGE_KEY)
+  } catch {
+    // same as above
+  }
+}
+
+/**
+ * Restores a persisted parent-session token from localStorage into memory.
+ * Returns the token if one was found (and set in memory), or null.
+ *
+ * The caller MUST validate the restored token via `checkParentSession()` before
+ * using it for reward operations — a restored token may be expired or revoked.
+ */
+export function restoreParentSessionToken(): string | null {
+  if (activeParentSessionToken) return activeParentSessionToken
+  try {
+    const stored = localStorage.getItem(PARENT_SESSION_STORAGE_KEY)
+    if (stored) {
+      activeParentSessionToken = stored
+      return stored
+    }
+  } catch {
+    // localStorage unavailable
+  }
+  return null
 }
 
 async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
@@ -91,31 +141,100 @@ export async function getSessions(options?: { mode?: string; limit?: number; off
   if (options?.offset) params.set('offset', String(options.offset))
   
   const query = params.toString()
-  return fetchApi<SessionsResponse>(`/api/sessions${query ? `?${query}` : ''}`)
+  return fetchApi<SessionsResponse>(`/sessions${query ? `?${query}` : ''}`)
 }
 
 export async function getSession(instanceId: string): Promise<ApiSession> {
-  return fetchApi<ApiSession>(`/api/sessions/${encodeURIComponent(instanceId)}`)
+  return fetchApi<ApiSession>(`/sessions/${encodeURIComponent(instanceId)}`)
 }
 
 export async function createSession(session: ApiSession): Promise<{ success: boolean; instanceId: string }> {
-  return fetchApi<{ success: boolean; instanceId: string }>('/api/sessions', {
+  return fetchApi<{ success: boolean; instanceId: string }>('/sessions', {
     method: 'POST',
     body: JSON.stringify(session),
   })
 }
 
 export async function updateSession(instanceId: string, session: Partial<ApiSession>): Promise<{ success: boolean }> {
-  return fetchApi<{ success: boolean }>(`/api/sessions/${encodeURIComponent(instanceId)}`, {
+  return fetchApi<{ success: boolean }>(`/sessions/${encodeURIComponent(instanceId)}`, {
     method: 'PUT',
     body: JSON.stringify(session),
   })
 }
 
 export async function deleteSession(instanceId: string): Promise<{ success: boolean }> {
-  return fetchApi<{ success: boolean }>(`/api/sessions/${encodeURIComponent(instanceId)}`, {
+  return fetchApi<{ success: boolean }>(`/sessions/${encodeURIComponent(instanceId)}`, {
     method: 'DELETE',
   })
+}
+
+/**
+ * Outcome of offering a completed session to the backend.
+ *
+ *  - `recorded`    the backend accepted and persisted the record (201)
+ *  - `duplicate`   the backend already has this instanceId (409) — treated as
+ *                  recorded, because the session identity is stable
+ *  - `rejected`    the backend refused the record itself (4xx other than 409);
+ *                  retrying the same payload cannot succeed
+ *  - `unavailable` the backend could not be reached or failed internally
+ *                  (network error, 5xx, 401/403/429); retryable
+ */
+export type RecordSessionOutcome =
+  | { readonly status: 'recorded'; readonly httpStatus: number }
+  | { readonly status: 'duplicate'; readonly httpStatus: number }
+  | { readonly status: 'rejected'; readonly httpStatus: number; readonly reason: string }
+  | { readonly status: 'unavailable'; readonly httpStatus: number; readonly reason: string }
+
+const RECORD_TIMEOUT_MS = 10_000
+
+/**
+ * Sends ONE completed-session record to the authoritative backend.
+ *
+ * The record is posted VERBATIM (the same object the local commit produced), so
+ * the server validates exactly what was committed — no re-projection, no
+ * client-side reward math, no derived fields.
+ *
+ * This function never throws: every failure is reported as an outcome so the
+ * caller can distinguish "recorded" from "not recorded yet" without exception
+ * control flow around a user-facing completion event.
+ */
+export async function recordCompletedSession(record: CompletedSessionRecord): Promise<RecordSessionOutcome> {
+  const controller = typeof AbortController === 'function' ? new AbortController() : null
+  const timer = controller ? setTimeout(() => controller.abort(), RECORD_TIMEOUT_MS) : null
+
+  try {
+    const response = await fetch(`${API_BASE}/sessions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(activeParentSessionToken ? { 'X-Parent-Session': activeParentSessionToken } : {}),
+      },
+      body: JSON.stringify(record),
+      ...(controller ? { signal: controller.signal } : {}),
+    })
+
+    if (response.status === 201) return { status: 'recorded', httpStatus: 201 }
+    if (response.status === 409) return { status: 'duplicate', httpStatus: 409 }
+
+    let reason = `http-${response.status}`
+    try {
+      const payload = await response.json() as { error?: unknown }
+      if (typeof payload?.error === 'string') reason = payload.error
+    } catch {
+      // non-JSON error body: keep the status-derived reason
+    }
+
+    // 5xx and auth/rate-limit failures are environmental, not payload problems:
+    // the same record can still be accepted later.
+    if (response.status >= 500 || response.status === 401 || response.status === 403 || response.status === 429) {
+      return { status: 'unavailable', httpStatus: response.status, reason }
+    }
+    return { status: 'rejected', httpStatus: response.status, reason }
+  } catch {
+    return { status: 'unavailable', httpStatus: 0, reason: 'network-error' }
+  } finally {
+    if (timer !== null) clearTimeout(timer)
+  }
 }
 
 // Config APIs

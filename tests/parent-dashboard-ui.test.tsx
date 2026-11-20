@@ -5,6 +5,7 @@ import { createPinVerifier, savePinVerifier, clearPinVerifier, resetAttemptState
 import type { CompletedSessionRecord, CompletedSessionRecordV1, CompletedSessionRecordV2 } from '../src/features/math-drill/persistence/completedSessionTypes'
 import type { UnifiedIndexedDbSessionStore } from '../src/features/math-drill/persistence/completedSessionHistoryStore'
 import type { RewardController, RewardTransaction, RewardConfig } from '../src/features/math-drill/reward'
+import { setParentSessionToken, clearParentSessionToken } from '../src/features/math-drill/api/sessionApi'
 
 function record(instanceId: string, mode: 'regular' | 'challenge', recordedAt: number, points: readonly (0 | 0.5 | 1)[], completedAt: number | null = recordedAt - 1): CompletedSessionRecordV1 {
   const outcomes = points.map(p => ({ level: 1 as const, operation: 'addition' as const, points: p }))
@@ -43,9 +44,12 @@ async function unlockTestDashboard() {
   await screen.findByRole('heading', { name: /dashboard orang tua/i })
 }
 
+afterEach(() => { vi.unstubAllGlobals() })
+
 describe('Parent Dashboard UI & Functional Integration Tests', () => {
   beforeEach(async () => {
     localStorage.clear()
+    clearParentSessionToken()
     await setupTestPin()
   })
 
@@ -142,6 +146,15 @@ describe('Parent Dashboard UI & Functional Integration Tests', () => {
     } as unknown as RewardController
 
     const { store } = fakeStore([])
+    setParentSessionToken('test-session-token')
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (String(url).includes('/api/parent/session')) {
+        return new Response(JSON.stringify({ valid: true, expiresAt: Date.now() + 3_600_000 }), {
+          status: 200, headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      return new Response(JSON.stringify({ error: 'not-found' }), { status: 404 })
+    }))
     render(<ParentDashboard store={store} onBack={vi.fn()} controller={mockController} />)
     await unlockTestDashboard()
 

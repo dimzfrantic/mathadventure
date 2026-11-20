@@ -10,10 +10,10 @@ export default function SessionCountdown({ snapshot }: { readonly snapshot: Pick
     document.addEventListener('visibilitychange', refresh)
     return () => { globalThis.clearInterval(interval); document.removeEventListener('visibilitychange', refresh) }
   }, [])
-  if (snapshot.timing.durationMs === null) return <p className="session-countdown">Tanpa batas waktu</p>
-  if (snapshot.cursor.phase === 'timeout') return <p className="session-countdown" role="status">Waktu Habis</p>
+  if (snapshot.timing.durationMs === null) return <span className="session-countdown session-countdown-unlimited"><span aria-hidden="true">⏱️</span> Tanpa batas waktu</span>
+  if (snapshot.cursor.phase === 'timeout') return <span className="session-countdown session-countdown-timeout" role="status"><span aria-hidden="true">⚠️</span> Waktu Habis</span>
   const remaining = remainingSessionMs(snapshot.timing, now) ?? 0
-  return <p className="session-countdown" role="timer" aria-label={`Sisa waktu ${formatCountdown(remaining)}`} aria-live="off">
-    Sisa waktu: <strong>{formatCountdown(remaining)}</strong>
-  </p>
+  return <span className="session-countdown session-countdown-timer" role="timer" aria-label={`Sisa waktu ${formatCountdown(remaining)}`} aria-live="off">
+    <span aria-hidden="true">⏱️</span> Sisa waktu: <strong>{formatCountdown(remaining)}</strong>
+  </span>
 }
