@@ -551,7 +551,7 @@ function ParentDashboardContent({
   const [confirmAction, setConfirmAction] = useState<{ type: 'confirm' | 'cancel'; txId: string } | null>(null)
 
   // Dashboard main tab state
-  const [activeTab, setActiveTab] = useState<'all' | 'rewards' | 'learning'>('all')
+  const [activeTab, setActiveTab] = useState<'all' | 'rewards' | 'learning' | 'rules'>('all')
 
   // Reward history filter & pagination state
   const [rewardFilter, setRewardFilter] = useState<'all' | 'redemption' | 'correction'>('all')
@@ -883,6 +883,13 @@ function ParentDashboardContent({
           onClick={() => setActiveTab('learning')}
         >
           📊 Progres Belajar
+        </button>
+        <button
+          type="button"
+          className={`parent-tab-btn ${activeTab === 'rules' ? 'parent-tab-btn-active' : ''}`}
+          onClick={() => setActiveTab('rules')}
+        >
+          📖 Panduan Bintang
         </button>
       </nav>
 
@@ -1395,6 +1402,108 @@ function ParentDashboardContent({
         </ol></section>
       </>}
       </>
+      )}
+
+      {(activeTab === 'all' || activeTab === 'rules') && (
+      <section className="parent-dashboard-card" aria-labelledby="star-rules-title">
+        <h2 id="star-rules-title">📖 Panduan &amp; Aturan Perolehan Bintang</h2>
+        <p className="parent-subcard-desc" style={{ marginBottom: '1.25rem' }}>
+          Sistem reward dirancang untuk memotivasi anak belajar secara konsisten, teliti, dan mandiri tanpa membuat mereka putus asa saat melakukan kesalahan.
+        </p>
+
+        <div className="parent-guide-grid">
+          <div className="parent-guide-card">
+            <h3 className="parent-guide-card-title">🎯 1. Sistem Poin Jawaban Soal</h3>
+            <p className="parent-guide-text">Setiap soal dinilai berdasarkan tingkat kemandirian anak dalam menjawab:</p>
+            <ul className="parent-guide-list">
+              <li>
+                <strong>✓ Benar pertama kali (1.0 poin):</strong> Anak menjawab dengan tepat pada percobaan pertama.
+              </li>
+              <li>
+                <strong>~ Benar setelah coba lagi (0.5 poin):</strong> Anak salah di awal namun berhasil memperbaiki jawabannya sendiri.
+              </li>
+              <li>
+                <strong>✗ Salah / Menyerah (0.0 poin):</strong> Jawaban salah dan tidak berhasil diperbaiki.
+              </li>
+            </ul>
+            <div className="parent-guide-formula">
+              <strong>Rumus Akurasi:</strong> (Total Poin ÷ Jumlah Soal Selesai) × 100%
+            </div>
+          </div>
+
+          <div className="parent-guide-card">
+            <h3 className="parent-guide-card-title">⭐ 2. Aturan Bintang Dasar (Semua Mode)</h3>
+            <p className="parent-guide-text">Bintang dasar ditentukan oleh tingkat penyelesaian soal dan persentase akurasi:</p>
+            <div className="parent-table-container">
+              <table className="parent-guide-table">
+                <thead>
+                  <tr>
+                    <th>Bintang</th>
+                    <th>Syarat Penyelesaian</th>
+                    <th>Syarat Akurasi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong className="star-highlight">⭐⭐⭐ 3 Bintang</strong></td>
+                    <td>100% (semua soal tuntas)</td>
+                    <td>≥ 90%</td>
+                  </tr>
+                  <tr>
+                    <td><strong className="star-highlight">⭐⭐ 2 Bintang</strong></td>
+                    <td>Minimal 70% soal</td>
+                    <td>≥ 70%</td>
+                  </tr>
+                  <tr>
+                    <td><strong className="star-highlight">⭐ 1 Bintang</strong></td>
+                    <td>Minimal 70% soal</td>
+                    <td>Di bawah 70%</td>
+                  </tr>
+                  <tr>
+                    <td><strong>0 Bintang</strong></td>
+                    <td>Di bawah 70% soal</td>
+                    <td>Belum masuk tabungan</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="parent-guide-card parent-guide-card-highlight">
+            <h3 className="parent-guide-card-title">⚡ 3. Bonus Khusus Mode Tantangan</h3>
+            <p className="parent-guide-text">Mode Tantangan memiliki tekanan batas waktu. Sistem memberikan apresiasi lebih berupa:</p>
+            <ul className="parent-guide-list">
+              <li>
+                <strong>⚡ Bonus Kecepatan (+1 ⭐):</strong> Diberikan jika semua soal selesai sebelum batas waktu habis, akurasi ≥ 80%, dan <em>sisa waktu masih tersisa minimal 20%</em> dari total durasi tantangan.
+              </li>
+              <li>
+                <strong>🚀 Pengali Tantangan (1.5x):</strong> Seluruh bintang (Bintang Dasar + Bonus Kecepatan) dikalikan <strong>1.5</strong> (pembulatan ke bawah).
+              </li>
+            </ul>
+            <div className="parent-guide-example">
+              <strong>Simulasi Contoh:</strong>
+              <p>Mengerjakan 20 soal tantangan level 3 &amp; 4 (17 benar penuh, 3 retry = akurasi 93%), selesai cepat dengan sisa waktu &gt; 20%:</p>
+              <code>(3 Bintang Dasar + 1 Bonus Kecepatan) × 1.5 = 4 × 1.5 = 6 Bintang!</code>
+            </div>
+          </div>
+
+          <div className="parent-guide-card">
+            <h3 className="parent-guide-card-title">💰 4. Konversi Saldo &amp; Penukaran Hadiah</h3>
+            <p className="parent-guide-text">Setiap bintang yang didapat anak otomatis disimpan ke ledger tabungan reward:</p>
+            <ul className="parent-guide-list">
+              <li>
+                Nilai tukar saat ini: <strong>Rp {Number(config?.rupiahPerStar ?? 500).toLocaleString('id-ID')} / bintang</strong> (dapat diatur di tab Reward).
+              </li>
+              <li>
+                Anak dapat mengajukan penukaran dari layar latihan. Bintang akan masuk ke status <em>Pending</em>.
+              </li>
+              <li>
+                Orang tua mengonfirmasi atau membatalkan penukaran hadiah di Dashboard Orang Tua dengan proteksi PIN.
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
       )}
 
       {confirmAction && (

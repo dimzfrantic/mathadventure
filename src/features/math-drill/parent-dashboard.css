@@ -663,4 +663,115 @@
   cursor: not-allowed;
 }
 
+/* Guide & Rules Tab Styles */
+.parent-guide-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+}
+
+@media (min-width: 768px) {
+  .parent-guide-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.parent-guide-card {
+  background: #f8fbfc;
+  border: 1px solid #d5e3e9;
+  border-radius: .75rem;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+}
+
+.parent-guide-card-highlight {
+  background: #fbfdff;
+  border-color: #bcd4e2;
+  box-shadow: 0 2px 8px rgba(40, 93, 117, .06);
+}
+
+.parent-guide-card-title {
+  font-size: 1.05rem;
+  font-weight: 750;
+  color: #173d54;
+  margin: 0;
+}
+
+.parent-guide-text {
+  font-size: .88rem;
+  color: #4a6375;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.parent-guide-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: .88rem;
+  color: #334d5d;
+  display: flex;
+  flex-direction: column;
+  gap: .45rem;
+  line-height: 1.45;
+}
+
+.parent-guide-formula {
+  margin-top: auto;
+  padding: .65rem .85rem;
+  background: #edf4f8;
+  border-radius: .5rem;
+  font-size: .85rem;
+  color: #1f475d;
+  border-left: 3px solid #285d75;
+}
+
+.parent-guide-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .85rem;
+  margin-top: .4rem;
+}
+
+.parent-guide-table th {
+  background: #eef5f8;
+  color: #173d54;
+  text-align: left;
+  padding: .5rem .65rem;
+  font-weight: 700;
+  border-bottom: 2px solid #d5e3e9;
+}
+
+.parent-guide-table td {
+  padding: .55rem .65rem;
+  border-bottom: 1px solid #e5eff4;
+  color: #334d5d;
+}
+
+.parent-guide-table .star-highlight {
+  color: #b86200;
+}
+
+.parent-guide-example {
+  margin-top: .4rem;
+  padding: .75rem;
+  background: #fff8e6;
+  border: 1px solid #f6dfa5;
+  border-radius: .5rem;
+  font-size: .85rem;
+  color: #6d4b00;
+}
+
+.parent-guide-example code {
+  display: block;
+  margin-top: .4rem;
+  padding: .4rem .6rem;
+  background: #fff;
+  border-radius: .35rem;
+  font-family: monospace;
+  font-weight: 700;
+  color: #925400;
+}
+
 @media (min-width: 520px) { .parent-dashboard { padding: 1.25rem; } .parent-dashboard-header { flex-direction: row; align-items: center; justify-content: space-between; } }
