@@ -1,4 +1,3 @@
-import type { SavedSessionV2 } from './persistence/sessionTypes'
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { createSessionController } from './persistence/sessionController'
 import type { SessionControllerState, SessionControllerOptions } from './persistence/sessionController'

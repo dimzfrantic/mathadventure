@@ -550,6 +550,14 @@ function ParentDashboardContent({
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [confirmAction, setConfirmAction] = useState<{ type: 'confirm' | 'cancel'; txId: string } | null>(null)
 
+  // Dashboard main tab state
+  const [activeTab, setActiveTab] = useState<'all' | 'rewards' | 'learning'>('all')
+
+  // Reward history filter & pagination state
+  const [rewardFilter, setRewardFilter] = useState<'all' | 'redemption' | 'correction'>('all')
+  const [rewardPage, setRewardPage] = useState<number>(1)
+  const REWARD_PAGE_SIZE = 5
+
   // Config editing state
   const [isEditingConfig, setIsEditingConfig] = useState(false)
   const [configForm, setConfigForm] = useState<{ rupiahPerStar: string; minStarsPerRedemption: string; maxStarsPerRedemption: string }>({
@@ -854,25 +862,64 @@ function ParentDashboardContent({
         </div>
       </header>
 
+      <nav className="parent-dashboard-tabs" aria-label="Navigasi Dasbor">
+        <button
+          type="button"
+          className={`parent-tab-btn ${activeTab === 'all' ? 'parent-tab-btn-active' : ''}`}
+          onClick={() => setActiveTab('all')}
+        >
+          📋 Semua Bagian
+        </button>
+        <button
+          type="button"
+          className={`parent-tab-btn ${activeTab === 'rewards' ? 'parent-tab-btn-active' : ''}`}
+          onClick={() => setActiveTab('rewards')}
+        >
+          🎁 Reward &amp; Penukaran
+        </button>
+        <button
+          type="button"
+          className={`parent-tab-btn ${activeTab === 'learning' ? 'parent-tab-btn-active' : ''}`}
+          onClick={() => setActiveTab('learning')}
+        >
+          📊 Progres Belajar
+        </button>
+      </nav>
+
+      {(activeTab === 'all' || activeTab === 'rewards') && (
       <section className="parent-dashboard-card" aria-labelledby="reward-management-title">
         <h2 id="reward-management-title">Penukaran bintang &amp; hadiah</h2>
         
         {controller ? (
           backendAuth === 'authenticated' ? (
             controllerStatus === 'ready' ? (
-              <>
-                <p data-testid="parent-access-status" style={{ color: '#2b8a3e', fontWeight: 600 }}>Akses Orang Tua Terbuka</p>
+              <div className="parent-reward-header-box">
+                <div>
+                  <span className="parent-status-badge parent-status-open" data-testid="parent-access-status">Akses Orang Tua Terbuka</span>
+                  <p className="parent-reward-header-sub">Ledger reward tersinkronisasi dan terverifikasi.</p>
+                </div>
                 {balanceFromController(controller) !== null && (
-                  <p style={{ marginTop: '0.5rem' }}>Saldo bintang: <strong data-testid="available-balance">{balanceFromController(controller)}</strong></p>
+                  <div className="parent-balance-display">
+                    <span className="parent-balance-label">Saldo Bintang</span>
+                    <strong data-testid="available-balance" className="parent-balance-value">
+                      {balanceFromController(controller)} <span aria-hidden="true">⭐</span>
+                    </strong>
+                  </div>
                 )}
-              </>
+              </div>
             ) : controllerStatus === 'storage-error' ? (
-              <p data-testid="parent-access-status" style={{ color: '#d9534f', fontWeight: 600 }}>
-                Status: Layanan reward tidak tersedia
-              </p>
+              <div className="parent-reward-header-box">
+                <span className="parent-status-badge parent-status-error" data-testid="parent-access-status">
+                  Status: Layanan reward tidak tersedia
+                </span>
+              </div>
             ) : null
           ) : backendAuth === 'checking' ? (
-            <p data-testid="parent-access-status" style={{ color: '#666', fontWeight: 600 }}>Memeriksa sesi reward…</p>
+            <div className="parent-reward-header-box">
+              <span className="parent-status-badge parent-status-checking" data-testid="parent-access-status">
+                Memeriksa sesi reward…
+              </span>
+            </div>
           ) : (
             <div className="parent-pin-form">
               <p data-testid="parent-access-status" style={{ color: '#666', fontWeight: 600 }}>
@@ -891,13 +938,15 @@ function ParentDashboardContent({
                 onChange={e => { setBackendPinInput(e.target.value); setBackendAuthError(null) }}
                 onKeyDown={e => { if (e.key === 'Enter') handleBackendAuthSubmit() }}
                 aria-label="PIN Reward"
-                style={{ marginTop: '0.5rem', padding: '0.5rem', fontSize: '1rem', width: '100%', maxWidth: '200px' }}
+                className="parent-input"
+                style={{ marginTop: '0.5rem', fontSize: '1rem', width: '100%', maxWidth: '200px' }}
               />
               <button
                 type="button"
                 onClick={handleBackendAuthSubmit}
                 disabled={backendAuthBusy || !/^\d{6}$/.test(backendPinInput)}
-                style={{ marginTop: '0.5rem', padding: '0.5rem 1rem', cursor: 'pointer' }}
+                className="parent-btn-primary"
+                style={{ marginTop: '0.5rem', width: '100%', maxWidth: '200px' }}
               >
                 {backendAuthBusy ? 'Memeriksa…' : 'Buka Reward'}
               </button>
@@ -907,31 +956,42 @@ function ParentDashboardContent({
             </div>
           )
         ) : (
-          <p data-testid="parent-access-status" style={{ color: '#666', fontWeight: 600 }}>
-            Layanan reward tidak dikonfigurasi.
-          </p>
+          <div className="parent-reward-header-box">
+            <span className="parent-status-badge parent-status-muted" data-testid="parent-access-status">
+              Layanan reward tidak dikonfigurasi.
+            </span>
+          </div>
         )}
-        {actionMessage && <p role="status" style={{ background: '#e6fcf5', padding: '0.5rem', borderRadius: '4px', marginTop: '0.5rem' }}>{actionMessage}</p>}
+        {actionMessage && <p role="status" className="parent-alert-success">{actionMessage}</p>}
 
         {backendAuth === 'authenticated' && (
           <>
-        <div style={{ marginTop: '1rem' }}>
-          <h3>Daftar Permintaan Penukaran</h3>
+        <div className="parent-subcard">
+          <div className="parent-subcard-header">
+            <div>
+              <h3 className="parent-subcard-title">Daftar Permintaan Penukaran</h3>
+              <p className="parent-subcard-desc">Permintaan penukaran hadiah yang diajukan oleh anak.</p>
+            </div>
+          </div>
           {transactions.length === 0 ? (
-            <p>Belum ada permintaan penukaran bintang.</p>
+            <p className="parent-subcard-empty">Belum ada permintaan penukaran bintang.</p>
           ) : (
-            <ul style={{ listStyle: 'none', padding: 0, marginTop: '0.5rem' }}>
+            <ul className="parent-item-list">
               {transactions.map(tx => (
-                <li key={tx.transactionId} style={{ border: '1px solid #ccc', padding: '0.75rem', marginBottom: '0.5rem', borderRadius: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  <div>
-                    <strong>ID: {tx.transactionId}</strong>
-                    <div>Bintang: {tx.starsRedeemed} (Rp {tx.rupiahValue.toLocaleString('id-ID')})</div>
-                    <div>Status: <span style={{ textTransform: 'uppercase', fontWeight: 600 }}>{tx.status}</span></div>
+                <li key={tx.transactionId} className="parent-item-card">
+                  <div className="parent-item-main">
+                    <div className="parent-item-id"><strong>ID: {tx.transactionId}</strong></div>
+                    <div className="parent-item-details">
+                      <span>Bintang: {tx.starsRedeemed} (Rp {tx.rupiahValue.toLocaleString('id-ID')})</span>
+                    </div>
+                    <div className="parent-item-status-row">
+                      Status: <span className={`parent-badge parent-badge-${tx.status}`}>{tx.status}</span>
+                    </div>
                   </div>
                   {tx.status === 'pending' && (
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button type="button" onClick={() => handleConfirm(tx.transactionId)} style={{ background: '#2b8a3e', color: '#fff', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer' }}>Konfirmasi</button>
-                      <button type="button" onClick={() => handleCancel(tx.transactionId)} style={{ background: '#d9534f', color: '#fff', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer' }}>Batalkan</button>
+                    <div className="parent-item-actions">
+                      <button type="button" className="parent-btn-success" onClick={() => handleConfirm(tx.transactionId)}>Konfirmasi</button>
+                      <button type="button" className="parent-btn-danger" onClick={() => handleCancel(tx.transactionId)}>Batalkan</button>
                     </div>
                   )}
                 </li>
@@ -941,68 +1001,100 @@ function ParentDashboardContent({
         </div>
 
         {config && (
-          <div style={{ marginTop: '1rem' }}>
-            <h3>Pengaturan Nilai Tukar</h3>
-            {!isEditingConfig ? (
-              <>
-                <p>Nilai tukar saat ini: Rp {config.rupiahPerStar} per bintang (Min: {config.minStarsPerRedemption}, Max: {config.maxStarsPerRedemption})</p>
+          <div className="parent-subcard">
+            <div className="parent-subcard-header">
+              <div>
+                <h3 className="parent-subcard-title">Pengaturan Nilai Tukar</h3>
+                <p className="parent-subcard-desc">Aturan konversi nilai bintang dan batasan jumlah penukaran hadiah.</p>
+              </div>
+              {!isEditingConfig && (
                 <button
                   type="button"
+                  className="parent-btn-secondary"
                   onClick={() => setIsEditingConfig(true)}
-                  style={{ marginTop: '0.5rem', padding: '0.4rem 0.8rem', cursor: 'pointer' }}
                 >
                   Ubah Pengaturan
                 </button>
-              </>
+              )}
+            </div>
+
+            {!isEditingConfig ? (
+              <div className="parent-config-content">
+                <div className="parent-config-grid">
+                  <div className="parent-stat-col">
+                    <span className="parent-stat-col-label">Nilai Kurs</span>
+                    <strong className="parent-stat-col-value">Rp {config.rupiahPerStar.toLocaleString('id-ID')}</strong>
+                    <span className="parent-stat-col-sub">per 1 bintang</span>
+                  </div>
+                  <div className="parent-stat-col">
+                    <span className="parent-stat-col-label">Min. Penukaran</span>
+                    <strong className="parent-stat-col-value">{config.minStarsPerRedemption} ⭐</strong>
+                    <span className="parent-stat-col-sub">bintang per klaim</span>
+                  </div>
+                  <div className="parent-stat-col">
+                    <span className="parent-stat-col-label">Maks. Penukaran</span>
+                    <strong className="parent-stat-col-value">{config.maxStarsPerRedemption} ⭐</strong>
+                    <span className="parent-stat-col-sub">bintang per klaim</span>
+                  </div>
+                </div>
+                <p className="parent-config-summary-note">
+                  Nilai tukar saat ini: Rp {config.rupiahPerStar} per bintang (Min: {config.minStarsPerRedemption}, Max: {config.maxStarsPerRedemption})
+                </p>
+              </div>
             ) : (
-              <div style={{ display: 'grid', gap: '0.5rem', marginTop: '0.5rem' }}>
-                <label style={{ display: 'grid', gap: '0.25rem' }}>
-                  <span>Rp per bintang</span>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    value={configForm.rupiahPerStar}
-                    onChange={e => setConfigForm(f => ({ ...f, rupiahPerStar: e.target.value }))}
-                    style={{ padding: '0.4rem', maxWidth: '160px' }}
-                  />
-                </label>
-                <label style={{ display: 'grid', gap: '0.25rem' }}>
-                  <span>Min bintang per penukaran</span>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    value={configForm.minStarsPerRedemption}
-                    onChange={e => setConfigForm(f => ({ ...f, minStarsPerRedemption: e.target.value }))}
-                    style={{ padding: '0.4rem', maxWidth: '160px' }}
-                  />
-                </label>
-                <label style={{ display: 'grid', gap: '0.25rem' }}>
-                  <span>Max bintang per penukaran</span>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    value={configForm.maxStarsPerRedemption}
-                    onChange={e => setConfigForm(f => ({ ...f, maxStarsPerRedemption: e.target.value }))}
-                    style={{ padding: '0.4rem', maxWidth: '160px' }}
-                  />
-                </label>
-                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+              <div>
+                <div className="parent-form-grid">
+                  <label className="parent-form-field">
+                    <span className="parent-field-label">Rp per bintang</span>
+                    <div className="parent-input-affix-wrapper">
+                      <span className="parent-input-prefix">Rp</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={1}
+                        className="parent-input"
+                        value={configForm.rupiahPerStar}
+                        onChange={e => setConfigForm(f => ({ ...f, rupiahPerStar: e.target.value }))}
+                      />
+                    </div>
+                  </label>
+                  <label className="parent-form-field">
+                    <span className="parent-field-label">Min bintang per penukaran</span>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      className="parent-input"
+                      value={configForm.minStarsPerRedemption}
+                      onChange={e => setConfigForm(f => ({ ...f, minStarsPerRedemption: e.target.value }))}
+                    />
+                  </label>
+                  <label className="parent-form-field">
+                    <span className="parent-field-label">Max bintang per penukaran</span>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      className="parent-input"
+                      value={configForm.maxStarsPerRedemption}
+                      onChange={e => setConfigForm(f => ({ ...f, maxStarsPerRedemption: e.target.value }))}
+                    />
+                  </label>
+                </div>
+                <div className="parent-form-actions">
                   <button
                     type="button"
+                    className="parent-btn-primary"
                     onClick={handleUpdateConfig}
                     disabled={configBusy}
-                    style={{ padding: '0.4rem 0.8rem', cursor: 'pointer' }}
                   >
                     {configBusy ? 'Menyimpan…' : 'Simpan Pengaturan'}
                   </button>
                   <button
                     type="button"
+                    className="parent-btn-secondary"
                     onClick={() => { setIsEditingConfig(false); if (config) setConfigForm({ rupiahPerStar: String(config.rupiahPerStar), minStarsPerRedemption: String(config.minStarsPerRedemption), maxStarsPerRedemption: String(config.maxStarsPerRedemption) }) }}
                     disabled={configBusy}
-                    style={{ padding: '0.4rem 0.8rem', cursor: 'pointer' }}
                   >
                     Batal
                   </button>
@@ -1012,107 +1104,199 @@ function ParentDashboardContent({
           </div>
         )}
 
-        <div style={{ marginTop: '1rem' }}>
-          <h3>Koreksi Saldo Manual</h3>
-          <p style={{ fontSize: '0.85rem', color: '#666' }}>
-            Koreksi digunakan untuk memperbaiki saldo akibat kesalahan proses di luar aplikasi. Pilih transaksi yang sudah dikonfirmasi sebagai acuan.
-          </p>
+        <div className="parent-subcard">
+          <div className="parent-subcard-header">
+            <div>
+              <h3 className="parent-subcard-title">Koreksi Saldo Manual</h3>
+              <p className="parent-subcard-desc">
+                Koreksi digunakan untuk memperbaiki saldo akibat kesalahan proses di luar aplikasi. Pilih transaksi yang sudah dikonfirmasi sebagai acuan.
+              </p>
+            </div>
+          </div>
           {transactions.filter(tx => tx.status === 'confirmed').length === 0 ? (
-            <p style={{ marginTop: '0.5rem' }}>Tidak ada transaksi terkonfirmasi yang dapat dikoreksi.</p>
+            <p className="parent-subcard-empty">Tidak ada transaksi terkonfirmasi yang dapat dikoreksi.</p>
           ) : (
-            <div style={{ display: 'grid', gap: '0.5rem', marginTop: '0.5rem' }}>
-              <label style={{ display: 'grid', gap: '0.25rem' }}>
-                <span>Transaksi asal</span>
-                <select
-                  value={correctionForm.originalTransactionId}
-                  onChange={e => setCorrectionForm(f => ({ ...f, originalTransactionId: e.target.value }))}
-                  style={{ padding: '0.4rem', maxWidth: '320px' }}
+            <div>
+              <div className="parent-form-grid">
+                <label className="parent-form-field">
+                  <span className="parent-field-label">Transaksi asal</span>
+                  <select
+                    className="parent-input"
+                    value={correctionForm.originalTransactionId}
+                    onChange={e => setCorrectionForm(f => ({ ...f, originalTransactionId: e.target.value }))}
+                  >
+                    <option value="">Pilih transaksi</option>
+                    {transactions.filter(tx => tx.status === 'confirmed').map(tx => (
+                      <option key={tx.transactionId} value={tx.transactionId}>
+                        {tx.transactionId} – {tx.starsRedeemed} bintang
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="parent-form-field">
+                  <span className="parent-field-label">Nominal koreksi (bintang)</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    className="parent-input"
+                    placeholder="Contoh: -2 atau +3"
+                    value={correctionForm.starsDelta}
+                    onChange={e => setCorrectionForm(f => ({ ...f, starsDelta: e.target.value }))}
+                  />
+                </label>
+                <label className="parent-form-field">
+                  <span className="parent-field-label">Alasan koreksi</span>
+                  <input
+                    type="text"
+                    className="parent-input"
+                    placeholder="Jelaskan alasan koreksi"
+                    value={correctionForm.reason}
+                    onChange={e => setCorrectionForm(f => ({ ...f, reason: e.target.value }))}
+                  />
+                </label>
+              </div>
+              <div className="parent-form-actions">
+                <button
+                  type="button"
+                  className="parent-btn-primary"
+                  onClick={handleApplyCorrection}
+                  disabled={correctionBusy}
                 >
-                  <option value="">Pilih transaksi</option>
-                  {transactions.filter(tx => tx.status === 'confirmed').map(tx => (
-                    <option key={tx.transactionId} value={tx.transactionId}>
-                      {tx.transactionId} – {tx.starsRedeemed} bintang
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label style={{ display: 'grid', gap: '0.25rem' }}>
-                <span>Nominal koreksi (bintang)</span>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  placeholder="Contoh: -2 atau +3"
-                  value={correctionForm.starsDelta}
-                  onChange={e => setCorrectionForm(f => ({ ...f, starsDelta: e.target.value }))}
-                  style={{ padding: '0.4rem', maxWidth: '160px' }}
-                />
-              </label>
-              <label style={{ display: 'grid', gap: '0.25rem' }}>
-                <span>Alasan koreksi</span>
-                <input
-                  type="text"
-                  placeholder="Jelaskan alasan koreksi"
-                  value={correctionForm.reason}
-                  onChange={e => setCorrectionForm(f => ({ ...f, reason: e.target.value }))}
-                  style={{ padding: '0.4rem', maxWidth: '320px' }}
-                />
-              </label>
-              <button
-                type="button"
-                onClick={handleApplyCorrection}
-                disabled={correctionBusy}
-                style={{ padding: '0.4rem 0.8rem', maxWidth: '200px', cursor: 'pointer' }}
-              >
-                {correctionBusy ? 'Menerapkan…' : 'Terapkan Koreksi'}
-              </button>
+                  {correctionBusy ? 'Menerapkan…' : 'Terapkan Koreksi'}
+                </button>
+              </div>
             </div>
           )}
         </div>
 
-        <div style={{ marginTop: '1rem' }}>
-          <h3>Riwayat Reward</h3>
+        <div className="parent-subcard">
+          <div className="parent-subcard-header">
+            <div>
+              <h3 className="parent-subcard-title">Riwayat Reward</h3>
+              <p className="parent-subcard-desc">Catatan historis transaksi penukaran dan penyesuaian saldo bintang.</p>
+            </div>
+          </div>
           {transactions.length === 0 && corrections.length === 0 ? (
-            <p>Belum ada riwayat penukaran atau koreksi.</p>
+            <p className="parent-subcard-empty">Belum ada riwayat penukaran atau koreksi.</p>
           ) : (
-            <ul style={{ listStyle: 'none', padding: 0, marginTop: '0.5rem' }}>
+            <>
+              <div className="parent-filter-bar">
+                <button
+                  type="button"
+                  className={`parent-filter-chip ${rewardFilter === 'all' ? 'parent-filter-chip-active' : ''}`}
+                  onClick={() => { setRewardFilter('all'); setRewardPage(1); }}
+                >
+                  Semua ({transactions.length + corrections.length})
+                </button>
+                <button
+                  type="button"
+                  className={`parent-filter-chip ${rewardFilter === 'redemption' ? 'parent-filter-chip-active' : ''}`}
+                  onClick={() => { setRewardFilter('redemption'); setRewardPage(1); }}
+                >
+                  Penukaran ({transactions.length})
+                </button>
+                <button
+                  type="button"
+                  className={`parent-filter-chip ${rewardFilter === 'correction' ? 'parent-filter-chip-active' : ''}`}
+                  onClick={() => { setRewardFilter('correction'); setRewardPage(1); }}
+                >
+                  Koreksi ({corrections.length})
+                </button>
+              </div>
+
               {(() => {
-                const entries = [
+                const allEntries = [
                   ...transactions.map(tx => ({ type: 'transaction' as const, tx })),
                   ...corrections.map(corr => ({ type: 'correction' as const, corr })),
                 ]
-                entries.sort((a, b) => {
+                allEntries.sort((a, b) => {
                   const timeA = a.type === 'transaction' ? (a.tx.confirmedAt ?? a.tx.cancelledAt ?? a.tx.requestedAt) : a.corr.createdAt
                   const timeB = b.type === 'transaction' ? (b.tx.confirmedAt ?? b.tx.cancelledAt ?? b.tx.requestedAt) : b.corr.createdAt
                   return timeB - timeA
                 })
-                return entries.map(entry => {
-                  if (entry.type === 'transaction') {
-                    const tx = entry.tx
-                    return (
-                      <li key={`tx-${tx.transactionId}`} style={{ border: '1px solid #ccc', padding: '0.75rem', marginBottom: '0.5rem', borderRadius: '4px' }}>
-                        <div><strong>Penukaran – {tx.transactionId}</strong></div>
-                        <div>Bintang: {tx.starsRedeemed} · Rp {tx.rupiahValue.toLocaleString('id-ID')}</div>
-                        <div>Status: <span style={{ textTransform: 'uppercase', fontWeight: 600 }}>{tx.status}</span></div>
-                      </li>
-                    )
-                  }
-                  const corr = entry.corr
-                  return (
-                    <li key={`corr-${corr.correctionId}`} style={{ border: '1px solid #e0e0e0', padding: '0.75rem', marginBottom: '0.5rem', borderRadius: '4px', background: '#fafafa' }}>
-                      <div><strong>Koreksi Saldo – {corr.correctionId}</strong></div>
-                      <div>Nominal: {corr.starsDelta > 0 ? '+' : ''}{corr.starsDelta} bintang</div>
-                      <div>Alasan: {corr.reason}</div>
-                    </li>
-                  )
+
+                const filtered = allEntries.filter(entry => {
+                  if (rewardFilter === 'redemption') return entry.type === 'transaction'
+                  if (rewardFilter === 'correction') return entry.type === 'correction'
+                  return true
                 })
+
+                if (filtered.length === 0) {
+                  return <p className="parent-subcard-empty">Tidak ada riwayat untuk filter ini.</p>
+                }
+
+                const totalPages = Math.max(1, Math.ceil(filtered.length / REWARD_PAGE_SIZE))
+                const safePage = Math.min(rewardPage, totalPages)
+                const startIndex = (safePage - 1) * REWARD_PAGE_SIZE
+                const paginated = filtered.slice(startIndex, startIndex + REWARD_PAGE_SIZE)
+
+                return (
+                  <>
+                    <ul className="parent-item-list">
+                      {paginated.map(entry => {
+                        if (entry.type === 'transaction') {
+                          const tx = entry.tx
+                          return (
+                            <li key={`tx-${tx.transactionId}`} className="parent-item-card">
+                              <div className="parent-item-main">
+                                <div className="parent-item-id"><strong>Penukaran – {tx.transactionId}</strong></div>
+                                <div className="parent-item-details">Bintang: {tx.starsRedeemed} · Rp {tx.rupiahValue.toLocaleString('id-ID')}</div>
+                                <div className="parent-item-status-row">Status: <span className={`parent-badge parent-badge-${tx.status}`}>{tx.status}</span></div>
+                              </div>
+                            </li>
+                          )
+                        }
+                        const corr = entry.corr
+                        return (
+                          <li key={`corr-${corr.correctionId}`} className="parent-item-card parent-item-correction">
+                            <div className="parent-item-main">
+                                <div className="parent-item-id"><strong>Koreksi Saldo – {corr.correctionId}</strong></div>
+                                <div className="parent-item-details">Nominal: {corr.starsDelta > 0 ? '+' : ''}{corr.starsDelta} bintang</div>
+                                <div className="parent-item-status-row">Alasan: {corr.reason}</div>
+                            </div>
+                          </li>
+                        )
+                      })}
+                    </ul>
+
+                    {totalPages > 1 && (
+                      <div className="parent-pagination">
+                        <span className="parent-pagination-info">
+                          Halaman {safePage} dari {totalPages} ({filtered.length} riwayat)
+                        </span>
+                        <div className="parent-pagination-actions">
+                          <button
+                            type="button"
+                            className="parent-page-btn"
+                            disabled={safePage <= 1}
+                            onClick={() => setRewardPage(p => Math.max(1, p - 1))}
+                          >
+                            « Sebelumnya
+                          </button>
+                          <button
+                            type="button"
+                            className="parent-page-btn"
+                            disabled={safePage >= totalPages}
+                            onClick={() => setRewardPage(p => Math.min(totalPages, p + 1))}
+                          >
+                            Berikutnya »
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )
               })()}
-            </ul>
+            </>
           )}
         </div>
           </>
         )}
       </section>
+      )}
 
+      {(activeTab === 'all' || activeTab === 'learning') && (
+      <>
       {state.status === 'loading' && <section className="parent-dashboard-card" aria-busy="true"><p role="status">Memuat riwayat latihan…</p></section>}
       {state.status === 'error' && <section className="parent-dashboard-card parent-dashboard-error" role="alert"><p>{state.message}</p><button type="button" onClick={() => { setState({ status: 'loading' }); setAttempt(v => v + 1) }}>Coba lagi</button></section>}
       {state.status === 'ready' && state.records.length === 0 && <section className="parent-dashboard-card parent-dashboard-empty"><h2>Belum ada riwayat latihan</h2><p>Hasil sesi yang selesai akan tampil di sini.</p></section>}
@@ -1146,7 +1330,7 @@ function ParentDashboardContent({
           ) : (
             <div style={{ display: 'grid', gap: '0.75rem', marginTop: '0.75rem' }}>
               {accuracyByLevel(state.records).map(stats => (
-                <div key={stats.level} style={{ padding: '0.75rem', border: '1px solid #e0e0e0', borderRadius: '4px', background: '#fafafa' }}>
+                <div key={stats.level} className="parent-stat-tile">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                     <strong>Level {stats.level}</strong>
                     <span style={{ fontSize: '0.85rem', color: '#666' }}>{stats.count} sesi</span>
@@ -1167,7 +1351,7 @@ function ParentDashboardContent({
             <h2 id="operation-stats-title">Statistik Per Operasi</h2>
             <div style={{ display: 'grid', gap: '0.75rem', marginTop: '0.75rem' }}>
               {accuracyByOperation(state.records).filter(op => op.count >= 5).map(stats => (
-                <div key={stats.operation} style={{ padding: '0.75rem', border: '1px solid #e0e0e0', borderRadius: '4px', background: '#fafafa' }}>
+                <div key={stats.operation} className="parent-stat-tile">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                     <strong>{stats.operation}</strong>
                     <span style={{ fontSize: '0.85rem', color: '#666' }}>{stats.count} soal</span>
@@ -1210,26 +1394,26 @@ function ParentDashboardContent({
             </li> })}
         </ol></section>
       </>}
+      </>
+      )}
 
       {confirmAction && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 1000
-        }} onClick={() => setConfirmAction(null)}>
-          <div style={{
-            background: 'white', padding: '1.5rem', borderRadius: '8px', maxWidth: '400px', width: '90%'
-          }} onClick={e => e.stopPropagation()}>
-            <h3>Konfirmasi Tindakan</h3>
-            <p>
+        <div className="parent-modal-overlay" onClick={() => setConfirmAction(null)}>
+          <div className="parent-modal-card" onClick={e => e.stopPropagation()}>
+            <h3 className="parent-modal-title">Konfirmasi Tindakan</h3>
+            <p className="parent-modal-message">
               {confirmAction.type === 'confirm'
                 ? `Apakah Anda yakin ingin mengonfirmasi transaksi ${confirmAction.txId}? Saldo bintang akan berkurang.`
                 : `Apakah Anda yakin ingin membatalkan transaksi ${confirmAction.txId}? Transaksi akan ditandai sebagai dibatalkan.`
               }
             </p>
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', justifyContent: 'flex-end' }}>
-              <button type="button" onClick={() => setConfirmAction(null)} style={{ padding: '0.5rem 1rem', cursor: 'pointer' }}>Batal</button>
-              <button type="button" onClick={executeAction} style={{ background: confirmAction.type === 'confirm' ? '#2b8a3e' : '#d9534f', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer' }}>
+            <div className="parent-modal-actions">
+              <button type="button" className="parent-btn-secondary" onClick={() => setConfirmAction(null)}>Batal</button>
+              <button
+                type="button"
+                className={confirmAction.type === 'confirm' ? 'parent-btn-success' : 'parent-btn-danger'}
+                onClick={executeAction}
+              >
                 {confirmAction.type === 'confirm' ? 'Konfirmasi' : 'Batalkan'}
               </button>
             </div>

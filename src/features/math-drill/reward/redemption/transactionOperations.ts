@@ -92,6 +92,7 @@ export function submitRedemptionRequest(params: {
   readonly config: RewardConfig
   readonly completedSessions: readonly unknown[]
   readonly existingTransactions: readonly unknown[]
+  readonly existingCorrections?: readonly unknown[]
 }): SubmitRedemptionResult {
   // 0. Validate input parameters upfront
   if (typeof params.transactionId !== 'string' || params.transactionId.trim().length === 0) {
@@ -101,10 +102,13 @@ export function submitRedemptionRequest(params: {
     return { status: 'error', reason: 'below-min-stars' }
   }
 
+  const existingCorrections = params.existingCorrections ?? []
+
   // 1. Check existing balance & ledger consistency
   const balanceResult = computeAvailableBalance(
     params.completedSessions,
     params.existingTransactions,
+    existingCorrections,
   )
   if (!balanceResult.isLedgerConsistent) {
     return { status: 'error', reason: 'ledger-inconsistent' }
@@ -152,6 +156,7 @@ export function submitRedemptionRequest(params: {
   const newBalanceResult = computeAvailableBalance(
     params.completedSessions,
     updatedTransactions,
+    existingCorrections,
   )
 
   return {
@@ -174,10 +179,13 @@ export function confirmRedemptionTransaction(params: {
   readonly confirmedAt: number
   readonly completedSessions: readonly unknown[]
   readonly existingTransactions: readonly unknown[]
+  readonly existingCorrections?: readonly unknown[]
 }): ConfirmRedemptionResult {
+  const existingCorrections = params.existingCorrections ?? []
   const balanceResult = computeAvailableBalance(
     params.completedSessions,
     params.existingTransactions,
+    existingCorrections,
   )
   if (!balanceResult.isLedgerConsistent) {
     return { status: 'error', reason: 'ledger-inconsistent' }

@@ -400,6 +400,7 @@ export class RewardLedger {
         config,
         completedSessions: sessions,
         existingTransactions: ledger.transactions,
+        existingCorrections: ledger.corrections,
       })
       if (result.status !== 'success') return result
 
@@ -440,6 +441,7 @@ export class RewardLedger {
             confirmedAt: this.now(),
             completedSessions: sessions,
             existingTransactions: ledger.transactions,
+            existingCorrections: ledger.corrections,
           })
         : core.cancelRedemptionTransaction({
             transactionId,

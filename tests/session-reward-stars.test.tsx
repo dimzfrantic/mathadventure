@@ -70,37 +70,37 @@ describe('SessionRewardStars Component', () => {
   })
 
   it('displays speed bonus badge when completed fast on timed session', () => {
-    const timedSnapshot: SavedRegularSessionV2 = {
+    const timedSnapshot = {
       schemaVersion: 2,
-      mode: 'regular',
+      mode: 'challenge' as const,
       instanceId: 'inst-1',
       sessionId: 'sess-1',
       revision: 1,
       createdAt: 1000,
       updatedAt: 2000,
-      cursor: { questionIndex: 10, phase: 'result', roundNumber: 2 },
-      session: { id: 'sess-1', mode: 'regular', questions: [], rounds: [] },
+      cursor: { questionIndex: 10, phase: 'result' as const, roundNumber: 2 },
+      session: { id: 'sess-1', mode: 'challenge' as const, questions: [], rounds: [] },
       score: { answers: {} },
       timing: {
         durationMs: 60000,
         startedAt: 1000,
         deadlineAt: 61000,
-        endedAt: 21000, // finished in 20s (40s remaining / 60s total = 66% >= 50% threshold)
-        endReason: 'completed',
+        endedAt: 21000, // finished in 20s (40s remaining / 60s total = 66% >= 20% threshold)
+        endReason: 'completed' as const,
         remainingMs: 40000,
       },
     }
 
     render(
       <SessionRewardStars
-        mode="regular"
+        mode="challenge"
         plannedCount={10}
         completedCount={10}
-        totalPoints={7} // base 2 stars -> +1 speed bonus = 3 stars
+        totalPoints={8} // base 2 stars + 1 speed bonus = 3 stars * 1.5 = floor(4.5) = 4
         snapshot={timedSnapshot}
       />
     )
     expect(screen.getByText('⚡ Bonus Kecepatan (+1 ⭐)')).toBeInTheDocument()
-    expect(screen.getByText('+3 Bintang Diperoleh!')).toBeInTheDocument()
+    expect(screen.getByText('+4 Bintang Diperoleh!')).toBeInTheDocument()
   })
 })

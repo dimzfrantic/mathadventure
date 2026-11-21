@@ -197,4 +197,58 @@ describe('Stage 7B — Phase 2: Transaction Operations & Corrections', () => {
     const invalidReason = { ...valid, reason: '   ' }
     expect(validateRewardCorrection(invalidReason).status).toBe('invalid')
   })
+
+  it('8. allows redemption using balance increased by reward correction', () => {
+    const s1 = makeSessionV2('11111111-1111-4111-8111-111111111111', 1) // 3 stars
+    const confirmedTx = {
+      transactionId: 'tx-orig',
+      status: 'confirmed' as const,
+      requestedAt: 2000,
+      confirmedAt: 3000,
+      cancelledAt: null,
+      starsRedeemed: 3,
+      rupiahValue: 1500,
+      ruleSnapshotVersion: 1,
+      ruleSnapshot: { rupiahPerStar: 500 },
+    }
+    const correction = {
+      correctionId: 'corr-100',
+      originalTransactionId: 'tx-orig',
+      starsDelta: 12,
+      createdAt: 4000,
+      reason: 'Manual correction bonus',
+    }
+
+    // Submitting without correction fails because net available balance is 0
+    const failRes = submitRedemptionRequest({
+      transactionId: 'tx-sub-fail',
+      starsRedeemed: 12,
+      requestedAt: 5000,
+      config: DEFAULT_REWARD_CONFIG,
+      completedSessions: [s1],
+      existingTransactions: [confirmedTx],
+      existingCorrections: [],
+    })
+    expect(failRes.status).toBe('error')
+    if (failRes.status === 'error') {
+      expect(failRes.reason).toBe('insufficient-balance')
+    }
+
+    // Submitting with correction succeeds for 12 stars
+    const succRes = submitRedemptionRequest({
+      transactionId: 'tx-sub-succ',
+      starsRedeemed: 12,
+      requestedAt: 5000,
+      config: DEFAULT_REWARD_CONFIG,
+      completedSessions: [s1],
+      existingTransactions: [confirmedTx],
+      existingCorrections: [correction],
+    })
+    expect(succRes.status).toBe('success')
+    if (succRes.status === 'success') {
+      expect(succRes.availableBalanceBefore).toBe(12)
+      expect(succRes.availableBalanceAfter).toBe(0)
+      expect(succRes.transaction.starsRedeemed).toBe(12)
+    }
+  })
 })

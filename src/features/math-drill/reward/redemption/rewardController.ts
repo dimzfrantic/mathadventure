@@ -198,6 +198,7 @@ export function createDisposableRewardController(options: RewardControllerOption
       if (current.status !== 'ready') return { status: 'error', reason: 'not-ready' }
       if (!current.balance.isLedgerConsistent) return { status: 'error', reason: 'ledger-inconsistent' }
       const existing = current.transactions as readonly unknown[]
+      const existingCorrections = current.corrections as readonly unknown[]
       const sessions = await options.stores.completedSessions()
       const result = submitRedemptionRequest({
         transactionId: params.transactionId,
@@ -206,6 +207,7 @@ export function createDisposableRewardController(options: RewardControllerOption
         config: current.config,
         completedSessions: sessions as readonly unknown[],
         existingTransactions: existing,
+        existingCorrections,
       })
       if (result.status !== 'success') return result
       const persist = await options.stores.reward.putTransaction(result.transaction, { completedSessions: sessions })
@@ -227,12 +229,14 @@ export function createDisposableRewardController(options: RewardControllerOption
       if (current.status !== 'ready') return { status: 'error', reason: 'not-ready' }
       if (!current.balance.isLedgerConsistent) return { status: 'error', reason: 'ledger-inconsistent' }
       const existing = current.transactions as readonly unknown[]
+      const existingCorrections = current.corrections as readonly unknown[]
       const sessions = await options.stores.completedSessions()
       const result = confirmRedemptionTransaction({
         transactionId,
         confirmedAt: (options.now ?? Date.now)(),
         completedSessions: sessions as readonly unknown[],
         existingTransactions: existing,
+        existingCorrections,
       })
       if (result.status !== 'success') return result
       const persist = await options.stores.reward.putTransaction(result.transaction, { completedSessions: sessions })

@@ -1,4 +1,3 @@
-import type { SavedSession } from './persistence/sessionTypes'
 import { calculateSessionRewardV1, calculateSessionRewardV2Extended } from './reward'
 
 type SessionTimingLike = {
@@ -59,7 +58,7 @@ export function SessionRewardStars({
         totalPoints,
       })
 
-  const earnedStars: number = 'finalStars' in reward ? reward.finalStars : reward.collectibleStars
+  const earnedStars = ('finalStars' in reward ? Number(reward.finalStars) : reward.collectibleStars) as number
   const hasSpeedBonus = 'speedBonusApplied' in reward && Boolean(reward.speedBonusApplied)
   const hasMultiplier = 'challengeMultiplierApplied' in reward && Boolean(reward.challengeMultiplierApplied)
 
